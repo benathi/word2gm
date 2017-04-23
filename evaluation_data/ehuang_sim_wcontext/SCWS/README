@@ -1,0 +1,41 @@
+##########################################################################################
+# Stanford's Contextual Word Similarities (SCWS)
+# 
+# Eric H. Huang, Richard Socher, Christopher D. Manning, Andrew Y. Ng
+# Computer Science Department
+# Stanford University
+##########################################################################################
+
+
+This dataset is available for download at http://ai.stanford.edu/~ehhuang/. It
+was collected and described in the following paper:
+
+Improving Word Representations via Global Context and Multiple Word Prototypes
+Eric H. Huang, Richard Socher, Christopher D. Manning, Andrew Y. Ng
+Annual Meeting of the Association for Computational Linguistics (ACL), 2012.
+
+Please cite the paper if you use the dataset:
+
+@inproceedings{HuangEtAl2012,
+author = {Eric H. Huang and Richard Socher and Christopher D. Manning and Andrew Y. Ng},
+title = {Improving Word Representations via Global Context and Multiple Word Prototypes},
+booktitle = {Annual Meeting of the Association for Computational Linguistics (ACL)},
+year = 2012
+}
+
+==========================================================================
+Included files:
+
+- README: this file
+
+- ratings.txt: the dataset
+
+Each line in ratings.txt consists of a pair of words, their respective
+contexts, the 10 individual human ratings, as well as their averages. The
+target word is surrounded by <b>...</b> in its context. Each line is tab-
+delimited with the following format:
+
+<id>   <word1>   <POS of word1>   <word2>   <POS of word2>   <word1 in context>   <word2 in context>   <average human rating>   <10 individual human ratings>
+
+---------------------------------------------------------------------------
+last modified: 6/20/2012

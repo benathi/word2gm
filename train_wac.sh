@@ -1,0 +1,3 @@
+# note: replace $UKWAC_USWAC with your local path for the concatenation of ukwac + wackypedia or other datasets if you prefer
+# the optimal hyperparameters for large datasets should be quite similar to those of ukwac + wackypedia
+python word2gm_trainer.py --num_mixtures 2 --train_data $UKWAC_USWAC --spherical --embedding_size 50 --epochs_to_train 5 --var_scale 0.05 --save_path modelfiles/wac-2s-e3-v05-lr05d-mc100-ss5-wout-adg-win10 --learning_rate 0.05  --subsample 1e-5 --wout --adagrad  --min_count 100 --batch_size 128 --max_to_keep 5 --checkpoint_interval 1000 --window_size 10

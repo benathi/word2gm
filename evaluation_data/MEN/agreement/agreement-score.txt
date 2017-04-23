@@ -1,0 +1,9 @@
+Because raters saw the MEN pairs matched to different random items, with the number of pairs also varying from rater to rater, it is not possible to compute annotator agreement scores for MEN. However, to get a sense of human agreement, the first and third author rated all 3,000 pairs (presented in different random orders) on a standard 1-7 Likert scale. The Spearman correlation of the two authors is at 0.68, the correlation of their average ratings with the MEN scores is at 0.84. On the one hand, this high correlation suggests that MEN contains meaningful semantic ratings. On the other, it can also be taken as an upper bound on what computational models can realistically achieve when simulating the human MEN judgments.
+
+
+      men       marco     elia
+men   1.0000000 0.8658309 0.6776950
+marco 0.8658309 1.0000000 0.6845838
+elia  0.6776950 0.6845838 1.0000000
+
+correlation(men, marco+elia)=0.84

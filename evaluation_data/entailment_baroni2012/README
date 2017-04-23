@@ -1,0 +1,30 @@
+matrix_cols
+    the "content words" of Section 3.1, though there is some junk
+    (such as words containing underscores) filtered out of the corpus
+
+matrix_rows
+    the "phrases of interest" of Section 3.1,
+    for the experiments involving both QN and AN vectors
+
+matrix_rows_AN
+    the "phrases of interest" of Section 3.1
+    for the experiments involving only AN vectors
+
+matrix_rows_QN
+    the "phrases of interest" of Section 3.1
+    for the experiments involving only QN vectors
+
+posInput
+    the "1246 AN sequences" of Section 3.2
+
+negativeInput__random1246
+    the "1244 negative training examples" of Section 3.2
+
+positive-examples.txtinput
+    the "1385 positive instances" of Section 3.3
+
+negative-examples.txtinput
+    the "negative instances of again 1385 pairs" of Section 3.3
+
+q1n__q2n.pairs
+    the "7537 positive instances and 8455 negative instances" of Section 3.4

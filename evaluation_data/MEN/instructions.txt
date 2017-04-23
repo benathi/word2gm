@@ -1,0 +1,17 @@
+(Please accept this job only if you are a native speaker of English.)
+
+You will be shown two CANDIDATE WORD PAIRS. You must pick the candidate 
+PAIR whose words are MOST RELATED IN MEANING.
+
+For example, given the pair candidates "wallet-moon" and "car-automobile", 
+you should choose the latter. 
+
+Sometimes, both candidate pairs have words that are related in meaning, 
+and you should pick the one where you think the words are more strongly 
+related (both "wheels-car" and "dog-race" have somewhat related word pairs, 
+but the first one is to be preferred as every car has wheels but not every 
+dog is involved in a race). Sometimes, neither pair contains words closely 
+related, and you should in such case pick the one that contain words at 
+least slightly more related (neither "auction-car" nor "cup-asphalt" are 
+closely related pairs, but you might pick the first because fancy vintage 
+cars are sold at auctions).

@@ -1,0 +1,10 @@
+The MEN Test Collection
+
+The MEN Test Collection contains two sets of English word pairs (one for training and one for testing) together with human-assigned similarity judgments, obtained by crowdsourcing using Amazon Mechanical Turk via the CrowdFlower interface. The collection can be used to train and/or test computer algorithms implementing semantic similarity and relatedness measures.
+
+The models are released under a Creative Commons Attribute licence (https://creativecommons.org/licenses/by/2.0/), please cite our paper if you use them in published work:
+
+Multimodal Distributional Semantics E. Bruni, N. K. Tran and M. Baroni. Journal of Artificial Intelligence Research 49: 1-47.
+
+Please also inform your readers of the current location of the data set:
+http://clic.cimec.unitn.it/~elia.bruni/MEN
