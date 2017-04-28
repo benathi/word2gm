@@ -147,5 +147,5 @@ arguments:
 ```
 
 ## Contact
-Ben Athiwaratkun (pa338 at cornell.edu)
+Ben Athiwaratkun (pa338 at cornell.edu) <br />
 Andrew Gordon Wilson (andrew at cornell.edu)
