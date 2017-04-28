@@ -1,6 +1,6 @@
 # Word2GM (Word to Gaussian Mixture)
 
-This is an implementation of the model in *Athiwaratkun and Wilson, Multimodal Word Distributions, 2017, ACL*.
+This is an implementation of the model in *Athiwaratkun and Wilson, [Multimodal Word Distributions](https://arxiv.org/abs/1704.08424), ACL, 2017*.  
 
 We represent each word in the dictionary as a Gaussian Mixture distribution and train it using a max-margin objective based on expected likelihood kernel energy function.
 
@@ -145,3 +145,7 @@ arguments:
   --nonormclip
 
 ```
+
+## Contact
+Ben Athiwaratkun (pa338 at cornell.edu)
+Andrew Gordon Wilson (andrew at cornell.edu)
