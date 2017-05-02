@@ -4,7 +4,7 @@ This package is an implementation of the model in *Athiwaratkun and Wilson, [Mul
 
 We represent each word in the dictionary as a Gaussian Mixture distribution and train it using a max-margin objective based on expected likelihood kernel energy function.
 
-Please cite [Athiwaratkun and Wilson (2017)]((https://arxiv.org/abs/1704.08424) if you find this code useful.  The BibTeX entry for the paper is:
+Please cite [Athiwaratkun and Wilson (2017)](https://arxiv.org/abs/1704.08424) if you find this code useful.  The BibTeX entry for the paper is:
 
 ```bibtex
 @article{athiwilson2017,
