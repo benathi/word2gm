@@ -1,19 +1,9 @@
 # Word2GM (Word to Gaussian Mixture)
 
-This package is an implementation of the model in *Athiwaratkun and Wilson, [Multimodal Word Distributions](https://arxiv.org/abs/1704.08424), ACL, 2017*.  
+This is an implementation of the model in *Athiwaratkun and Wilson, Multimodal Word Distributions, 2017, ACL*.
 
 We represent each word in the dictionary as a Gaussian Mixture distribution and train it using a max-margin objective based on expected likelihood kernel energy function.
 
-Please cite [Athiwaratkun and Wilson (2017)](https://arxiv.org/abs/1704.08424) if you find this code useful.  The BibTeX entry for the paper is:
-
-```bibtex
-@article{athiwilson2017,
-  title={Multimodal word distributions},
-  author={Athiwaratkun, Ben and Wilson, Andrew Gordon},
-  journal={arXiv preprint arXiv:1704.08424},
-  year={2017}
-}
-```
 ## Training Data
 The data used in the paper is the concatenation of *ukWaC* and *WaCkypedia_EN*, both of which can be requested [here](http://wacky.sslmit.unibo.it/doku.php?id=download).
 
@@ -70,7 +60,7 @@ We provide visualization for our models trained on *ukWaC+WaCkypedia* for [K=1](
 
 
 ## Trained Model
-We provide a trained model for K=2 [here](http://35.161.153.223:6004/w2gm-k2-d50.tar.gz). To load and analyze the model, see **Analyze Model.ipynb**. Please download and extract it to the directory **modelfiles**.
+We provide a trained model for K=2 [here](http://35.161.153.223:6004/w2gm-k2-d50.tar.gz). To analyze the model, see **Analyze Model.ipynb**. The code expects the model to be extracted to directory **modelfiles/w2gm-k2-d50/**.
 
 
 ### Training on large datasets
@@ -158,7 +148,3 @@ arguments:
   --nonormclip
 
 ```
-
-## Contact
-Ben Athiwaratkun (pa338 at cornell.edu) <br />
-Andrew Gordon Wilson (andrew at cornell.edu)
