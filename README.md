@@ -59,6 +59,9 @@ The Tensorboard embeddings visualization tools (please use Firefox or Chrome) al
 We provide visualization for our models trained on *ukWaC+WaCkypedia* for [K=1](http://35.161.153.223:6001), [K=2](http://35.161.153.223:6002), and [K=3](http://35.161.153.223:6003).
 
 
+## Trained Model
+We provide a trained model for K=2 [here](http://35.161.153.223:6004/w2gm-k2-d50.tar.gz). To load and analyze the model, see **Analyze Model.ipynb**. Please download and extract it to the directory **modelfiles**.
+
 
 ### Training on large datasets
 Our code relies on the word sampling implementation of Tensorflow. Existing implementation of Tensorflow can handle a dataset up to a certain size (~4GB) but would throw an error for larger datasets such as *ukWaC+WaCkypedia* (17GB).
