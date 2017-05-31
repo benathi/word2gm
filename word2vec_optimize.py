@@ -39,7 +39,9 @@ from six.moves import xrange  # pylint: disable=redefined-builtin
 import numpy as np
 import tensorflow as tf
 
-word2vec = tf.load_op_library(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'word2vec_ops.so'))
+#word2vec = tf.load_op_library(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'word2vec_ops.so'))
+from tensorflow.models.embedding import gen_word2vec as word2vec
+
 
 flags = tf.app.flags
 
@@ -175,7 +177,7 @@ class Word2Vec(object):
 
     # The training data. A text file.
     (words, counts, words_per_epoch, current_epoch, total_words_processed,
-     examples, labels) = word2vec.skipgram_word2vec(filename=opts.train_data,
+     examples, labels) = word2vec.skipgram(filename=opts.train_data,
                                                     batch_size=opts.batch_size,
                                                     window_size=opts.window_size,
                                                     min_count=opts.min_count,
