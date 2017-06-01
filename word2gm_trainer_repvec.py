@@ -230,7 +230,7 @@ class Word2GMtrainer(object):
     self._session = session
     self._word2id = {}
     self._id2word = []
-    self.build_graph() # 
+    self.build_graph()
     self.save_vocab()
 
   def optimize(self, loss):
@@ -278,6 +278,92 @@ class Word2GMtrainer(object):
                                global_step=self.global_step,
                                gate_gradients=optimizer.GATE_NONE)
     self._train = train
+
+  def calculate_loss_vec(self, word_idxs, pos_idxs):
+    examples = word_idxs
+    labels = pos_idxs
+
+    opts = self._options
+    # Declare all variables we need.
+    # Embedding: [vocab_size, emb_dim]
+    init_width = 0.5 / opts.emb_dim
+    emb = tf.Variable(
+        tf.random_uniform(
+            [opts.vocab_size, opts.emb_dim], -init_width, init_width),
+        name="emb")
+    self._emb = emb
+
+    sm_w_t = tf.Variable(
+        tf.zeros([opts.vocab_size, opts.emb_dim]),
+        name="sm_w_t")
+
+    # Softmax bias: [emb_dim].
+    sm_b = tf.Variable(tf.zeros([opts.vocab_size]), name="sm_b")
+
+    # Global step: scalar, i.e., shape [].
+    self.global_step = tf.Variable(0, name="global_step")
+
+    # Nodes to compute the nce loss w/ candidate sampling.
+    labels_matrix = tf.reshape(
+        tf.cast(labels,
+                dtype=tf.int64),
+        [opts.batch_size, 1])
+
+    # Negative sampling.
+    sampled_ids, _, _ = (tf.nn.fixed_unigram_candidate_sampler(
+        true_classes=labels_matrix,
+        num_true=1,
+        #num_sampled=opts.num_samples,
+        num_sampled=opts.batch_size,
+        unique=True,
+        range_max=opts.vocab_size,
+        distortion=0.75,
+        unigrams=opts.vocab_counts.tolist()))
+
+    # Embeddings for examples: [batch_size, emb_dim]
+    example_emb = tf.nn.embedding_lookup(emb, examples)
+
+    # Weights for labels: [batch_size, emb_dim]
+    true_w = tf.nn.embedding_lookup(sm_w_t, labels)
+    # Biases for labels: [batch_size, 1]
+    true_b = tf.nn.embedding_lookup(sm_b, labels)
+
+    # Weights for sampled ids: [num_sampled, emb_dim]
+    sampled_w = tf.nn.embedding_lookup(sm_w_t, sampled_ids)
+    # Biases for sampled ids: [num_sampled, 1]
+    sampled_b = tf.nn.embedding_lookup(sm_b, sampled_ids)
+
+    # True logits: [batch_size, 1]
+    true_logits = tf.reduce_sum(tf.mul(example_emb, true_w), 1) + true_b
+
+    # Sampled logits: [batch_size, num_sampled]
+    # We replicate sampled noise labels for all examples in the batch
+    # using the matmul.
+    sampled_b_vec = tf.reshape(sampled_b, [opts.batch_size])
+    sampled_logits = tf.matmul(example_emb,
+                               sampled_w,
+                               transpose_b=True) + sampled_b_vec
+
+    loss = self.nce_loss(true_logits, sampled_logits)
+    tf.scalar_summary("NCE loss", loss)
+    return loss
+
+
+  def nce_loss(self, true_logits, sampled_logits):
+    """Build the graph for the NCE loss."""
+
+    # cross-entropy(logits, labels)
+    opts = self._options
+    true_xent = tf.nn.sigmoid_cross_entropy_with_logits(
+        true_logits, tf.ones_like(true_logits))
+    sampled_xent = tf.nn.sigmoid_cross_entropy_with_logits(
+        sampled_logits, tf.zeros_like(sampled_logits))
+
+    # NCE-loss is the sum of the true and noise (sampled words)
+    # contributions, averaged over the batch.
+    nce_loss_tensor = (tf.reduce_sum(true_xent) +
+                       tf.reduce_sum(sampled_xent)) / opts.batch_size
+    return nce_loss_tensor
 
 
   def calculate_loss(self, word_idxs, pos_idxs):
@@ -419,7 +505,8 @@ class Word2GMtrainer(object):
         return loss
 
     loss = Lfunc(word_idxs, pos_idxs, neg_idxs)
-    tf.scalar_summary('loss', loss)
+    #tf.scalar_summary('loss', loss)
+    tf.summary.scalar('loss', loss)
 
     return loss
 
@@ -466,10 +553,14 @@ class Word2GMtrainer(object):
     self._id2word = opts.vocab_words
     for i, w in enumerate(self._id2word):
       self._word2id[w] = i
-    loss = self.calculate_loss(examples, labels)
+    if opts.rep == 'gm':
+      loss = self.calculate_loss(examples, labels)
+    elif opts.rep == 'vec':
+      # BenA: TODO - to implement the vector version
+      loss = self.calculate_loss_vec(examples, labels)
     self._loss = loss
 
-    if opts.normclip:
+    if opts.normclip and opts.rep == 'gm':
       self._clip_ops = self.clip_ops_graph(self._examples, self._labels, self._neg_idxs)
 
     if opts.adagrad:
@@ -481,7 +572,8 @@ class Word2GMtrainer(object):
     # Properly initialize all variables.
     self.check_op = tf.add_check_numerics_ops()
 
-    tf.initialize_all_variables().run()
+    #tf.initialize_all_variables().run()
+    tf.global_variables_initializer().run()
 
     try:
       print('Try using saver version v2')
@@ -514,8 +606,10 @@ class Word2GMtrainer(object):
     """Train the model."""
     opts = self._options
     initial_epoch, initial_words = self._session.run([self._epoch, self._words])
-    summary_op = tf.merge_all_summaries()
-    summary_writer = tf.train.SummaryWriter(opts.save_path, self._session.graph)
+    #summary_op = tf.merge_all_summaries()
+    summary_op = tf.summary.merge_all()
+    #summary_writer = tf.train.SummaryWriter(opts.save_path, self._session.graph)
+    summary_writer = tf.summary.FileWriter(opts.save_path, self._session.graph)
     workers = []
     for _ in xrange(opts.concurrent_steps):
       t = threading.Thread(target=self._train_thread_body)
