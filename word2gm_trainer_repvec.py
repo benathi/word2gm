@@ -107,6 +107,15 @@ flags.DEFINE_boolean("normclip", False,
 
 flags.DEFINE_string("rep", "gm", 'The type of representation. Either gm or vec')
 
+flags.DEFINE_boolean("char_emb", False,
+                    "Whether we should use the character embedding model")
+
+flags.DEFINE_boolean("group_sparsity", False,
+                    "Whether we should use group sparsity")
+
+flags.DEFINE_integer("num_samples", 10,
+                    "The number of samples")
+
 FLAGS = flags.FLAGS
 
 
@@ -203,6 +212,9 @@ class Options(object):
     self.lower_sig = FLAGS.lower_sig
 
     self.rep = FLAGS.rep
+    self.char_emb = FLAGS.char_emb
+    self.group_sparsity = FLAGS.group_sparsity
+    self.num_samples = FLAGS.num_samples
 
 class Word2GMtrainer(object):
 
@@ -224,6 +236,7 @@ class Word2GMtrainer(object):
     print('Subsampling rate = {}'.format(opts.subsample))
     print('Using Max Partial Energy Loss = {}'.format(opts.max_pe))
     print('Loss Epsilon = {}'.format(opts.loss_epsilon))
+    print('The number of samples {}'.format(opts.num_samples))
     print('Saving results to = {}'.format(options.save_path))
     print('--------------------------------------------------------')
 
@@ -279,7 +292,30 @@ class Word2GMtrainer(object):
                                gate_gradients=optimizer.GATE_NONE)
     self._train = train
 
-  def calculate_loss_vec(self, word_idxs, pos_idxs):
+  # TODO
+  def build_char_emb(self):
+    char_emb_model = None
+    if opts.char_emb_type == 'bilstm':
+      pass
+    elif opts.char_emb_type == 'cnn':
+      pass
+    return char_emb_model
+
+  #def char_emb(self, char_seq):
+    # shape (batch_size, char_emb_size)
+    # TODO - might need to build the model first and process it here
+  #  char_embs = None
+    
+  #  return char_embs
+
+  # TODO
+  def to_char_seq(self, idxs):
+    # shape: (batch_size or num_samples,)
+    # convert indices to character sequences
+    char_seq = None
+    return char_seq
+
+  def calculate_loss_vec(self, word_idxs, pos_idxs, word_chars=None, pos_chars=None):
     examples = word_idxs
     labels = pos_idxs
 
@@ -293,12 +329,13 @@ class Word2GMtrainer(object):
         name="emb")
     self._emb = emb
 
+    # This is wout?
     sm_w_t = tf.Variable(
         tf.zeros([opts.vocab_size, opts.emb_dim]),
         name="sm_w_t")
 
     # Softmax bias: [emb_dim].
-    sm_b = tf.Variable(tf.zeros([opts.vocab_size]), name="sm_b")
+    #sm_b = tf.Variable(tf.zeros([opts.vocab_size]), name="sm_b")
 
     # Global step: scalar, i.e., shape [].
     self.global_step = tf.Variable(0, name="global_step")
@@ -313,8 +350,8 @@ class Word2GMtrainer(object):
     sampled_ids, _, _ = (tf.nn.fixed_unigram_candidate_sampler(
         true_classes=labels_matrix,
         num_true=1,
-        #num_sampled=opts.num_samples,
-        num_sampled=opts.batch_size,
+        num_sampled=opts.num_samples,
+        #num_sampled=opts.batch_size,
         unique=True,
         range_max=opts.vocab_size,
         distortion=0.75,
@@ -323,29 +360,46 @@ class Word2GMtrainer(object):
     # Embeddings for examples: [batch_size, emb_dim]
     example_emb = tf.nn.embedding_lookup(emb, examples)
 
+
+
     # Weights for labels: [batch_size, emb_dim]
     true_w = tf.nn.embedding_lookup(sm_w_t, labels)
     # Biases for labels: [batch_size, 1]
-    true_b = tf.nn.embedding_lookup(sm_b, labels)
+    #true_b = tf.nn.embedding_lookup(sm_b, labels)
 
     # Weights for sampled ids: [num_sampled, emb_dim]
     sampled_w = tf.nn.embedding_lookup(sm_w_t, sampled_ids)
     # Biases for sampled ids: [num_sampled, 1]
-    sampled_b = tf.nn.embedding_lookup(sm_b, sampled_ids)
+    #sampled_b = tf.nn.embedding_lookup(sm_b, sampled_ids)
+
+
+    if self.char_emb:
+      print('Building Character Embeddings Model')
+      char_emb_model = self.build_char_emb()
+      self.char_emb_model = char_emb_model
+      # Adding the character embeddings
+      print('Adding Character Embeddings to Dictionary Embeddings')
+      example_emb += char_emb_model(word_chars)
+      true_w += char_emb_model(pos_chars)
+      #sample_chars = self.to_char_seq(sampled_ids)
+      #sampled_w += char_emb_model(sampled_ids)
 
     # True logits: [batch_size, 1]
-    true_logits = tf.reduce_sum(tf.mul(example_emb, true_w), 1) + true_b
+    true_logits = tf.reduce_sum(tf.mul(example_emb, true_w), 1) #+ true_b
 
     # Sampled logits: [batch_size, num_sampled]
     # We replicate sampled noise labels for all examples in the batch
     # using the matmul.
-    sampled_b_vec = tf.reshape(sampled_b, [opts.batch_size])
+    #sampled_b_vec = tf.reshape(sampled_b, [opts.num_samples])
+    #BenA: use the same set of negative samples with every center word in the minibatch
     sampled_logits = tf.matmul(example_emb,
                                sampled_w,
-                               transpose_b=True) + sampled_b_vec
+                               transpose_b=True) #+ sampled_b_vec
 
+    # TODO - BenA: - why do we need NCE loss?
     loss = self.nce_loss(true_logits, sampled_logits)
-    tf.scalar_summary("NCE loss", loss)
+    #tf.scalar_summary("NCE loss", loss)
+    tf.summary.scalar("NCE loss", loss)
     return loss
 
 
