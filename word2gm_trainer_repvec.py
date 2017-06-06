@@ -26,12 +26,16 @@ import tensorflow as tf
 
 from tensorflow.models.embedding import gen_word2vec as word2vec
 
+# external modules
+from ops import batch_norm, highway
+from TDNN import TDNN
+
 flags = tf.app.flags
 
 flags.DEFINE_string("save_path", None, "Directory to write the model and "
                     "training summaries. (required)")
 flags.DEFINE_string("train_data", None, "Training text file. (required)")
-flags.DEFINE_integer("embedding_size", 50, "The embedding dimension size.")
+flags.DEFINE_integer("embedding_size", 350, "The embedding dimension size.")
 flags.DEFINE_integer(
     "epochs_to_train", 5,
     "Number of epochs to train. Each epoch processes the training data once "
@@ -41,7 +45,7 @@ flags.DEFINE_float("learning_rate", 0.2, "Initial learning rate.")
 flags.DEFINE_integer("batch_size", 256,
                      "Number of training examples processed per step "
                      "(size of a minibatch).")
-flags.DEFINE_integer("concurrent_steps", 12,
+flags.DEFINE_integer("concurrent_steps", 1,
                      "The number of concurrent training steps.")
 flags.DEFINE_integer("window_size", 5,
                      "The number of words to predict to the left and right "
@@ -114,7 +118,25 @@ flags.DEFINE_boolean("group_sparsity", False,
                     "Whether we should use group sparsity")
 
 flags.DEFINE_integer("num_samples", 10,
-                    "The number of samples")
+                    "The number of samples for negative sampling")
+
+flags.DEFINE_integer("max_word_len", 10,
+                    "The maximum word length")
+
+#flags.DEFINE_integer("char_vocab_size", 30,
+#                    "The size of character vocabulary (26 + extra characters)")
+
+flags.DEFINE_integer("char_embed_dim", 15,
+                    "The size of the character embeddings")
+
+flags.DEFINE_boolean("use_batch_norm", False,
+                    "Whether to use batch normalization")
+
+flags.DEFINE_string("char_emb_type", 'cnn',
+                    "Type of model to process character embeddings")
+
+flags.DEFINE_boolean("use_highway", False,
+                    "Whether to use highway network")
 
 FLAGS = flags.FLAGS
 
@@ -215,6 +237,13 @@ class Options(object):
     self.char_emb = FLAGS.char_emb
     self.group_sparsity = FLAGS.group_sparsity
     self.num_samples = FLAGS.num_samples
+    self.max_word_len = FLAGS.max_word_len
+#    self.char_vocab_size = FLAGS.char_vocab_size
+    self.char_embed_dim = FLAGS.char_embed_dim
+    self.use_batch_norm = FLAGS.use_batch_norm
+    self.char_emb_type = FLAGS.char_emb_type
+    self.use_highway = FLAGS.use_highway
+
 
 class Word2GMtrainer(object):
 
@@ -293,13 +322,44 @@ class Word2GMtrainer(object):
     self._train = train
 
   # TODO
-  def build_char_emb(self):
-    char_emb_model = None
-    if opts.char_emb_type == 'bilstm':
-      pass
-    elif opts.char_emb_type == 'cnn':
-      pass
-    return char_emb_model
+  def process_char_seq(self, char_inputs):
+    with tf.variable_scope("CHAR_MODEL") as scope:
+      opts = self._options
+      #char_inputs = tf.placeholder(tf.int32, [opts.batch_size, opts.max_word_len])
+
+      #TODO - char_vocab_size is probably set dynamically based on the corpus?
+      # or actually it should be set beforehand?
+      char_W = tf.get_variable("char_embed",
+              [opts.char_vocab_size, opts.char_embed_dim])
+      
+      #tf.split(split_dim, num_split, value, name='split')
+      #char_indices = tf.split(1, self.char_inputs)
+      #char_index = self.char_inputs
+      # note: scope.reuse_variables() --> this essentially replaces a constructor to be simply a call
+      # to the same model
+      char_embed = tf.nn.embedding_lookup(char_W, char_inputs)
+      # Where are the feature maps and kernels defined?
+
+      if opts.char_emb_type == 'bilstm':
+        assert False, 'Bi LSTM model not implemented'
+        pass
+      elif opts.char_emb_type == 'cnn':
+        print('Using CNN Model for Character Embedding')
+        # The feature maps is configurable but fixed for now
+        #feature_maps = [50, 100, 150, 200, 200, 200, 200] # This adds up to 1100
+        feature_maps = [50,50,50,50,50,50,50]
+        kernels = [1,2,3,4,5,6,7]
+        char_cnn = TDNN(char_embed, embed_dim=opts.char_embed_dim, feature_maps=feature_maps, kernels=kernels,
+          max_seq_len=opts.max_word_len)
+        cnn_output = char_cnn.output
+        if opts.use_batch_norm:
+          bn = batch_norm()
+          norm_output = bn(tf.expand_dims(tf.expand_dims(cnn_output, 1), 1))
+          cnn_output = tf.squeeze(norm_output)
+        if opts.use_highway:
+          cnn_output = highway(cnn_output, cnn_output.get_shape()[1], self.highway_layers, 0)
+        output = cnn_output
+      return output
 
   #def char_emb(self, char_seq):
     # shape (batch_size, char_emb_size)
@@ -373,16 +433,17 @@ class Word2GMtrainer(object):
     #sampled_b = tf.nn.embedding_lookup(sm_b, sampled_ids)
 
 
-    if self.char_emb:
-      print('Building Character Embeddings Model')
-      char_emb_model = self.build_char_emb()
-      self.char_emb_model = char_emb_model
-      # Adding the character embeddings
-      print('Adding Character Embeddings to Dictionary Embeddings')
-      example_emb += char_emb_model(word_chars)
-      true_w += char_emb_model(pos_chars)
-      #sample_chars = self.to_char_seq(sampled_ids)
-      #sampled_w += char_emb_model(sampled_ids)
+    if opts.char_emb:
+      with tf.variable_scope("char_emb_all") as scope:
+        print('Building Character Embeddings Model')        
+        # Adding the character embeddings
+        print('Adding Character Embeddings to Dictionary Embeddings')
+        example_emb += self.process_char_seq(word_chars)
+        scope.reuse_variables()
+        # BenA: TODO - fix this laterf
+        #true_w += self.process_char_seq(pos_chars)
+        #sample_chars = self.to_char_seq(sampled_ids)
+        #sampled_w += char_emb_model(sampled_ids)
 
     # True logits: [batch_size, 1]
     true_logits = tf.reduce_sum(tf.mul(example_emb, true_w), 1) #+ true_b
@@ -586,6 +647,43 @@ class Word2GMtrainer(object):
 
     return [clip1, clip2, clip3, clip4, clip5, clip6]
 
+  def char_to_idx(self, char):
+    idx_raw = ord(char)
+    if idx_raw >= 33 and idx_raw <= 126:
+      return ord(char) - 33 + 1
+    else:
+      return 0
+
+  def set_char_params(self):
+    self._options.char_vocab_size = 126 - 33 + 1 + 1
+    # BenA: not setting maxlen - we would like to support a character sequence that's
+    # longer that what we've previously seen
+    #max_len = 0
+    #for word in self._id2word:
+    #  if len(word) > max_len:
+    #    max_len = len
+    #self.max_word_len = max_len
+
+  def generate_char_map(self):
+    self.set_char_params()
+    # assert that max_word_len is high enough
+    max_word_len_corpus = max([len(word) for word in self._id2word])
+    print('The maximum word len on a corpus', max_word_len_corpus) #29
+    # Note: it would cut off anything beyond the self._options.max_word_len
+    #assert max_word_len_corpus < self._options.max_word_len
+    # generate character map
+    charmap_np = np.zeros((self._options.vocab_size, self._options.max_word_len), dtype=np.int32)
+    for i, word in enumerate(self._id2word):
+      word_seq = np.array([self.char_to_idx(c) for c in word])
+      charmap_np[i,:min(len(word_seq), self._options.max_word_len)] = word_seq[:self._options.max_word_len]
+    self.charmap = tf.constant(charmap_np, dtype=tf.int32, shape=None, name='charmap')
+
+  # TODO
+  def idxs_to_charseq_tf(self, idxs):
+    # idxs is of shape (batch_size, ) where each index represents a word
+    # we would like to convert this to (batch_size, max_seq_len)
+    return tf.nn.embedding_lookup(self.charmap, idxs)
+
   def build_graph(self):
     """Build the graph for the full model."""
     opts = self._options
@@ -605,13 +703,23 @@ class Word2GMtrainer(object):
     self._examples = examples
     self._labels = labels
     self._id2word = opts.vocab_words
+    #self._vocab_size = len(opts.vocab_words)
+    #print('Vocab size = ', vocab_size)
+    #print('Type of self._id2word', type(self._id2word))
+    #print(self._id2word)
     for i, w in enumerate(self._id2word):
       self._word2id[w] = i
+    # construct character map
+    self.generate_char_map()
+    examples_charseq = self.idxs_to_charseq_tf(examples)
+    labels_charseq = self.idxs_to_charseq_tf(labels)
+
     if opts.rep == 'gm':
       loss = self.calculate_loss(examples, labels)
     elif opts.rep == 'vec':
       # BenA: TODO - to implement the vector version
-      loss = self.calculate_loss_vec(examples, labels)
+      print('type of examples', type(examples))
+      loss = self.calculate_loss_vec(examples, labels, examples_charseq, labels_charseq)
     self._loss = loss
 
     if opts.normclip and opts.rep == 'gm':
