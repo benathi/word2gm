@@ -11,8 +11,9 @@ def conv2d(input_, output_dim, k_h, k_w,
   with tf.variable_scope(name):
     #w = tf.get_variable('w', [k_h, k_w, input_.get_shape()[-1], output_dim],
     #          initializer=tf.truncated_normal_initializer(stddev=stddev))
-    embed_dim = 1 # using the max sequence length
     # BenA: input_ should have the shape (batch_size, max_seq_len, emb_dim)
+    # TODO - is this correct?
+    embed_dim = 1
     w = tf.get_variable('w', [k_h, k_w, embed_dim, output_dim],
               initializer=tf.truncated_normal_initializer(stddev=stddev))
     conv = tf.nn.conv2d(input_, w, strides=[1, 1, 1, 1], padding='VALID')

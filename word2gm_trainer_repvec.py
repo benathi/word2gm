@@ -45,7 +45,7 @@ flags.DEFINE_float("learning_rate", 0.2, "Initial learning rate.")
 flags.DEFINE_integer("batch_size", 256,
                      "Number of training examples processed per step "
                      "(size of a minibatch).")
-flags.DEFINE_integer("concurrent_steps", 1,
+flags.DEFINE_integer("concurrent_steps", 12,
                      "The number of concurrent training steps.")
 flags.DEFINE_integer("window_size", 5,
                      "The number of words to predict to the left and right "
@@ -137,6 +137,9 @@ flags.DEFINE_string("char_emb_type", 'cnn',
 
 flags.DEFINE_boolean("use_highway", False,
                     "Whether to use highway network")
+
+flags.DEFINE_boolean("gpu", False,
+                    "Using GPU or CPU")
 
 FLAGS = flags.FLAGS
 
@@ -243,6 +246,7 @@ class Options(object):
     self.use_batch_norm = FLAGS.use_batch_norm
     self.char_emb_type = FLAGS.char_emb_type
     self.use_highway = FLAGS.use_highway
+    self.gpu = FLAGS.gpu
 
 
 class Word2GMtrainer(object):
@@ -344,7 +348,7 @@ class Word2GMtrainer(object):
         assert False, 'Bi LSTM model not implemented'
         pass
       elif opts.char_emb_type == 'cnn':
-        print('Using CNN Model for Character Embedding')
+        print('Using the CNN Model for Character Embedding')
         # The feature maps is configurable but fixed for now
         #feature_maps = [50, 100, 150, 200, 200, 200, 200] # This adds up to 1100
         feature_maps = [50,50,50,50,50,50,50]
@@ -375,7 +379,7 @@ class Word2GMtrainer(object):
     char_seq = None
     return char_seq
 
-  def calculate_loss_vec(self, word_idxs, pos_idxs, word_chars=None, pos_chars=None):
+  def calculate_loss_vec(self, word_idxs, pos_idxs):
     examples = word_idxs
     labels = pos_idxs
 
@@ -420,8 +424,8 @@ class Word2GMtrainer(object):
     # Embeddings for examples: [batch_size, emb_dim]
     example_emb = tf.nn.embedding_lookup(emb, examples)
 
-
-
+    print('sampled_ids', sampled_ids)
+    print(sampled_ids.get_shape())
     # Weights for labels: [batch_size, emb_dim]
     true_w = tf.nn.embedding_lookup(sm_w_t, labels)
     # Biases for labels: [batch_size, 1]
@@ -434,6 +438,9 @@ class Word2GMtrainer(object):
 
 
     if opts.char_emb:
+      word_chars = self.idxs_to_charseq_tf(examples)
+      pos_chars = self.idxs_to_charseq_tf(labels)
+      sampled_chars = self.idxs_to_charseq_tf(sampled_ids)
       with tf.variable_scope("char_emb_all") as scope:
         print('Building Character Embeddings Model')        
         # Adding the character embeddings
@@ -441,9 +448,11 @@ class Word2GMtrainer(object):
         example_emb += self.process_char_seq(word_chars)
         scope.reuse_variables()
         # BenA: TODO - fix this laterf
-        #true_w += self.process_char_seq(pos_chars)
-        #sample_chars = self.to_char_seq(sampled_ids)
-        #sampled_w += char_emb_model(sampled_ids)
+        true_w += self.process_char_seq(pos_chars)
+        #self._debug = self.process_char_seq(sampled_chars)
+        #self._debug = self.process_char_seq(sampled_chars)
+        sampled_w += self.process_char_seq(sampled_chars)
+        # there might be a problem here if the number of samples is 1
 
     # True logits: [batch_size, 1]
     true_logits = tf.reduce_sum(tf.mul(example_emb, true_w), 1) #+ true_b
@@ -707,19 +716,20 @@ class Word2GMtrainer(object):
     #print('Vocab size = ', vocab_size)
     #print('Type of self._id2word', type(self._id2word))
     #print(self._id2word)
+    print('examples++++++++++++++++++++++++++')
+    print(examples)
+    print(examples.get_shape())
     for i, w in enumerate(self._id2word):
       self._word2id[w] = i
     # construct character map
     self.generate_char_map()
-    examples_charseq = self.idxs_to_charseq_tf(examples)
-    labels_charseq = self.idxs_to_charseq_tf(labels)
-
+    
     if opts.rep == 'gm':
       loss = self.calculate_loss(examples, labels)
     elif opts.rep == 'vec':
       # BenA: TODO - to implement the vector version
       print('type of examples', type(examples))
-      loss = self.calculate_loss_vec(examples, labels, examples_charseq, labels_charseq)
+      loss = self.calculate_loss_vec(examples, labels)
     self._loss = loss
 
     if opts.normclip and opts.rep == 'gm':
@@ -772,11 +782,14 @@ class Word2GMtrainer(object):
     summary_op = tf.summary.merge_all()
     #summary_writer = tf.train.SummaryWriter(opts.save_path, self._session.graph)
     summary_writer = tf.summary.FileWriter(opts.save_path, self._session.graph)
-    workers = []
-    for _ in xrange(opts.concurrent_steps):
-      t = threading.Thread(target=self._train_thread_body)
-      t.start()
-      workers.append(t)
+    if opts.gpu:
+      self._train_thread_body()
+    else:
+      workers = []
+      for _ in xrange(opts.concurrent_steps):
+        t = threading.Thread(target=self._train_thread_body)
+        t.start()
+        workers.append(t)
     last_words, last_time, last_summary_time = initial_words, time.time(), 0
     last_checkpoint_time = 0
     step_manual = 0
@@ -785,6 +798,7 @@ class Word2GMtrainer(object):
       time.sleep(opts.statistics_interval)  # Reports our progress once a while.
       (epoch, step, loss, words, lr) = self._session.run(
           [self._epoch, self.global_step, self._loss, self._words, self._lr])
+      #print('Runtime - debug shape ', _debug.shape)
       now = time.time()
       last_words, last_time, rate = words, now, (words - last_words) / (
           now - last_time)
@@ -828,9 +842,13 @@ def main(_):
     print('The directory already exists', FLAGS.save_path)
   opts = Options()
   print('Saving results to {}'.format(opts.save_path))
+  print(opts)
   with tf.Graph().as_default(), tf.Session() as session:
-    with tf.device("/cpu:0"):
+    if opts.gpu:
       model = Word2GMtrainer(opts, session)
+    else:
+      with tf.device("/cpu:0"):
+        model = Word2GMtrainer(opts, session)
     for _ in xrange(opts.epochs_to_train):
       model.train()  
     # Perform a final save.
