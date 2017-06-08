@@ -40,24 +40,27 @@ def highway(input_, size, layer_size=1, bias=-2, f=tf.nn.relu):
 
 class batch_norm(object):
   """Code modification of http://stackoverflow.com/a/33950177"""
-  def __init__(self, epsilon=1e-5, momentum = 0.1, name="batch_norm"):
+  # the original method tried to make it 4-d
+  # now we assume the data has 2 dim (batch, dim)
+  def __init__(self, dim=100, epsilon=1e-5, momentum = 0.1, name="batch_norm"):
     with tf.variable_scope(name) as scope:
       self.epsilon = epsilon
       self.momentum = momentum
 
       self.ema = tf.train.ExponentialMovingAverage(decay=self.momentum)
       self.name=name
+      self.dim = dim
 
   def __call__(self, x, train=True):
-    shape = x.get_shape().as_list()
+    #shape = x.get_shape().as_list()
 
     with tf.variable_scope(self.name) as scope:
-      self.gamma = tf.get_variable("gamma", [shape[-1]],
+      self.gamma = tf.get_variable("gamma", [self.dim],
           initializer=tf.random_normal_initializer(1., 0.02))
-      self.beta = tf.get_variable("beta", [shape[-1]],
+      self.beta = tf.get_variable("beta", [self.dim],
           initializer=tf.constant_initializer(0.))
 
-      mean, variance = tf.nn.moments(x, [0, 1, 2])
+      mean, variance = tf.nn.moments(x, [0])
 
       return tf.nn.batch_norm_with_global_normalization(
         x, mean, variance, self.beta, self.gamma, self.epsilon,

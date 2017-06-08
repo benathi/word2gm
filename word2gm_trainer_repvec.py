@@ -141,6 +141,10 @@ flags.DEFINE_boolean("use_highway", False,
 flags.DEFINE_boolean("gpu", False,
                     "Using GPU or CPU")
 
+flags.DEFINE_float("gr_lamb", 1.0,
+                    "The regularization strength for group sparsity")
+
+
 FLAGS = flags.FLAGS
 
 
@@ -247,6 +251,7 @@ class Options(object):
     self.char_emb_type = FLAGS.char_emb_type
     self.use_highway = FLAGS.use_highway
     self.gpu = FLAGS.gpu
+    self.gr_lamb = FLAGS.gr_lamb
 
 
 class Word2GMtrainer(object):
@@ -325,13 +330,11 @@ class Word2GMtrainer(object):
                                gate_gradients=optimizer.GATE_NONE)
     self._train = train
 
-  # TODO
   def process_char_seq(self, char_inputs):
     with tf.variable_scope("CHAR_MODEL") as scope:
       opts = self._options
       #char_inputs = tf.placeholder(tf.int32, [opts.batch_size, opts.max_word_len])
 
-      #TODO - char_vocab_size is probably set dynamically based on the corpus?
       # or actually it should be set beforehand?
       char_W = tf.get_variable("char_embed",
               [opts.char_vocab_size, opts.char_embed_dim])
@@ -352,27 +355,29 @@ class Word2GMtrainer(object):
         # The feature maps is configurable but fixed for now
         #feature_maps = [50, 100, 150, 200, 200, 200, 200] # This adds up to 1100
         feature_maps = [50,50,50,50,50,50,50]
+        dim = sum(feature_maps)
         kernels = [1,2,3,4,5,6,7]
         char_cnn = TDNN(char_embed, embed_dim=opts.char_embed_dim, feature_maps=feature_maps, kernels=kernels,
           max_seq_len=opts.max_word_len)
         cnn_output = char_cnn.output
+        #self._debug = cnn_output
+        #self._debug = char_embed
+        #self._debug = char_inputs
+        cnn_output = tf.reshape(cnn_output, [-1, dim])
         if opts.use_batch_norm:
-          bn = batch_norm()
-          norm_output = bn(tf.expand_dims(tf.expand_dims(cnn_output, 1), 1))
-          cnn_output = tf.squeeze(norm_output)
+          # TODO - Do we need this scope variable?
+          #cnn_output = tf.contrib.layers.batch_norm(cnn_output, center=True, scale=True, is_training=True, scope='bn')
+          bn = batch_norm(dim=dim)
+          cnn_output = bn(cnn_output)
+          # Why does it need to be expanded?
+          #norm_output = bn(tf.expand_dims(tf.expand_dims(cnn_output, 1), 1))
+          #cnn_output = tf.squeeze(norm_output)
         if opts.use_highway:
-          cnn_output = highway(cnn_output, cnn_output.get_shape()[1], self.highway_layers, 0)
+          # TODO - how many layers should we use?
+          cnn_output = highway(cnn_output, size=dim, layer_size=1, bias=0)
         output = cnn_output
       return output
 
-  #def char_emb(self, char_seq):
-    # shape (batch_size, char_emb_size)
-    # TODO - might need to build the model first and process it here
-  #  char_embs = None
-    
-  #  return char_embs
-
-  # TODO
   def to_char_seq(self, idxs):
     # shape: (batch_size or num_samples,)
     # convert indices to character sequences
@@ -411,6 +416,7 @@ class Word2GMtrainer(object):
         [opts.batch_size, 1])
 
     # Negative sampling.
+    # (true_classes, num_true, num_sampled, unique, range_max, vocab_file='', distortion=1.0, num_reserved_ids=0, num_shards=1, shard=0, unigrams=(), seed=None, name=None)
     sampled_ids, _, _ = (tf.nn.fixed_unigram_candidate_sampler(
         true_classes=labels_matrix,
         num_true=1,
@@ -421,6 +427,16 @@ class Word2GMtrainer(object):
         distortion=0.75,
         unigrams=opts.vocab_counts.tolist()))
 
+    # (true_classes, num_true, num_sampled, unique, range_max, seed=None, name=None)
+    subset_idxs, _, _ = (tf.nn.uniform_candidate_sampler(
+      true_classes=labels_matrix,
+      num_true=1,
+      num_sampled=opts.batch_size,
+      unique=True,
+      range_max=opts.vocab_size,
+      name='UniformSamplerGroupSparsity'
+      ))
+
     # Embeddings for examples: [batch_size, emb_dim]
     example_emb = tf.nn.embedding_lookup(emb, examples)
 
@@ -430,7 +446,6 @@ class Word2GMtrainer(object):
     true_w = tf.nn.embedding_lookup(sm_w_t, labels)
     # Biases for labels: [batch_size, 1]
     #true_b = tf.nn.embedding_lookup(sm_b, labels)
-
     # Weights for sampled ids: [num_sampled, emb_dim]
     sampled_w = tf.nn.embedding_lookup(sm_w_t, sampled_ids)
     # Biases for sampled ids: [num_sampled, 1]
@@ -447,12 +462,10 @@ class Word2GMtrainer(object):
         print('Adding Character Embeddings to Dictionary Embeddings')
         example_emb += self.process_char_seq(word_chars)
         scope.reuse_variables()
-        # BenA: TODO - fix this laterf
         true_w += self.process_char_seq(pos_chars)
-        #self._debug = self.process_char_seq(sampled_chars)
-        #self._debug = self.process_char_seq(sampled_chars)
         sampled_w += self.process_char_seq(sampled_chars)
-        # there might be a problem here if the number of samples is 1
+        # there is a problem here if the number of samples is 1
+        # probably gets flattened somewhere
 
     # True logits: [batch_size, 1]
     true_logits = tf.reduce_sum(tf.mul(example_emb, true_w), 1) #+ true_b
@@ -470,7 +483,16 @@ class Word2GMtrainer(object):
     loss = self.nce_loss(true_logits, sampled_logits)
     #tf.scalar_summary("NCE loss", loss)
     tf.summary.scalar("NCE loss", loss)
-    return loss
+    # make sure this is the sum of norms
+    # would have to do some subsampling!
+    if opts.group_sparsity:
+      print("Using group sparsity******************")
+      subset_emb = tf.nn.embedding_lookup(emb, subset_idxs)
+      group_sparsity_loss = opts.gr_lamb*tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.pow(subset_emb,2), axis=1)))
+      tf.summary.scalar("Group Sparsity Loss", group_sparsity_loss)
+      reg_loss = loss + group_sparsity_loss
+      tf.summary.scalar("Regularized loss", reg_loss)
+    return reg_loss
 
 
   def nce_loss(self, true_logits, sampled_logits):
@@ -796,9 +818,12 @@ class Word2GMtrainer(object):
 
     while True:
       time.sleep(opts.statistics_interval)  # Reports our progress once a while.
+      #(epoch, step, loss, words, lr, _debug) = self._session.run(
+      #    [self._epoch, self.global_step, self._loss, self._words, self._lr, self._debug])
+      #print('Runtime - debug shape ', _debug.shape)
+
       (epoch, step, loss, words, lr) = self._session.run(
           [self._epoch, self.global_step, self._loss, self._words, self._lr])
-      #print('Runtime - debug shape ', _debug.shape)
       now = time.time()
       last_words, last_time, rate = words, now, (words - last_words) / (
           now - last_time)

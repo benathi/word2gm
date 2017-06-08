@@ -5,4 +5,8 @@
 # Now we focus on adding the character emb model
 
 # Using character embedding
-python word2gm_trainer_repvec.py --concurrent_steps 1 --rep vec --train_data data/text8 --save_path modelfiles/word2gm_repvec_char --num_samples 2 --char_emb  #--no-use_batch_norm --no_use_highway
+#python word2gm_trainer_repvec.py --concurrent_steps 1 --rep vec --train_data data/text8 --save_path modelfiles/word2gm_repvec_char --num_samples 2 --char_emb  #--no-use_batch_norm --no_use_highway
+
+#python word2gm_trainer_repvec.py --concurrent_steps 1 --rep vec --train_data data/text8 --save_path modelfiles/word2gm_repvec_char --num_samples 2 --char_emb --group_sparsity #--no-use_batch_norm --no_use_highway
+
+python word2gm_trainer_repvec.py --concurrent_steps 1 --rep vec --train_data data/text8 --save_path modelfiles/word2gm_repvec_char --num_samples 2 --char_emb --group_sparsity --use_batch_norm  #--use_highway
