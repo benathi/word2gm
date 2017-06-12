@@ -18,7 +18,7 @@ import numpy as np
 # 
 
 class WordEmb(object):
-  def __init__(self, save_path):
+  def __init__(self, save_path, session=None, load=True):
     # load the models
     self.save_path = save_path
 
@@ -31,14 +31,17 @@ class WordEmb(object):
     latest_ckpt_file = tf.train.latest_checkpoint(self.save_path)
     print('The latest ckpt file ', latest_ckpt_file)
 
-    #with tf.Graph().as_default() as g:
-    #  with tf.Session(graph=g) as session:
-    self.session = tf.Session()
     # load the model
-    #self.session = session
+    if session is None:
+      self.session = tf.Session()
+    else:
+      self.session = session
     self.load_model()
     saver = tf.train.Saver(tf.global_variables())
-    saver.restore(self.session, latest_ckpt_file)
+    if load:
+      saver.restore(self.session, latest_ckpt_file)
+    else:
+      tf.global_variables_initializer().run(session=self.session)
 
   def load_vocab(self):
     id2word = [''.join([i if ord(i) < 128 
@@ -115,6 +118,20 @@ class WordEmb(object):
       return 0
 
   def dictionary_embedding(self, word_list):
+    indicator = [word in self.word2id for word in word_list]
+    word_sublist = [word for word in word_list if word in self.word2id]
+    dict_emb_sublist = self.dictionary_embedding_indict(word_sublist)
+    dict_emb = np.zeros((len(word_list), dict_emb_sublist.shape[1]))
+    counter = 0
+    for i, val in enumerate(indicator):
+      if val:
+        dict_emb[i] = dict_emb_sublist[counter]
+        counter += 1
+    print('Counter ending at ', counter)
+    assert counter == dict_emb_sublist.shape[0]
+    return dict_emb
+
+  def dictionary_embedding_indict(self, word_list):
     # if not in there, maybe return 0 vector?
     for word in word_list:
       assert word in self.word2id, 'Word {} is not in the dictionary'
@@ -127,10 +144,10 @@ class WordEmb(object):
     return dict_embs
 
   def get_char_input(self, word_list):
-    char_input = np.zeros((len(word_list), self.options.max_word_len))
+    char_input = np.zeros((len(word_list), self.options.max_word_len), dtype=np.int32)
     for i, word in enumerate(word_list):
       word_seq = np.array([self.char_to_idx(c) for c in word])
-      char_input[i, :min(len(word_seq), self.options.max_word_len)] = word_seq = np.array([self.char_to_idx(c) for c in word])
+      char_input[i, :min(len(word_seq), self.options.max_word_len)] = word_seq[:self.options.max_word_len]
     return char_input
 
   def char_embedding(self, word_list):
@@ -140,15 +157,26 @@ class WordEmb(object):
     char_embs = self.session.run(self.char_output, feed_dict={self.char_inputs:char_input})
     return char_embs
 
-  def word_to_emb(self, word_list, option='combine'):
-
-    assert option in ['combine']
+  def word_to_emb(self, word_list, option='add'):
+    assert option in ['add', 'char', 'dict']
     # Take a list of strings in a minibatch and obtain the embeddings
     # (1) check if it's in the dictionary
     # (2) obtain character sequence and get the char embedding sequence
     # (3) feed char embedding sequence to obtain the word embedding
 
+    # now only works if all words in the dictionary
+    if option == 'add':
+      return self.char_embedding(word_list) + self.dictionary_embedding(word_list)
+    elif option == 'char':
+      return self.char_embedding(word_list)
+    elif option == 'dict':
+      return self.dictionary_embedding(word_list)
+    elif option == 'both':
+      return [self.char_embedding(word_list), self.dictionary_embedding(word_list)]
+
 if __name__ == '__main__':
+  # BenA: loading seems to do something for sure.
+  # Why does the char emb turn out to be all 1 and -1?
   m = WordEmb(save_path='modelfiles/model_word_char_v2-no_gs/')
   print('Dictionary Embedding')
   print(m.dictionary_embedding(['dog', 'cat']).shape)
