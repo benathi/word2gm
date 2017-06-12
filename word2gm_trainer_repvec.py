@@ -29,6 +29,7 @@ from tensorflow.models.embedding import gen_word2vec as word2vec
 # external modules
 from ops import batch_norm, highway
 from TDNN import TDNN
+import pickle
 
 flags = tf.app.flags
 
@@ -283,6 +284,25 @@ class Word2GMtrainer(object):
     self._id2word = []
     self.build_graph()
     self.save_vocab()
+    self.save_options() # make sure that the options do not get modified
+
+  def save_options(self):
+    opts = self._options
+    print('options:::::')
+    print(opts)
+    pickle.dump(opts, open(os.path.join(opts.save_path, "options.p"), 'w'))
+    print('Saved options')
+
+
+  def save_vocab(self):
+    """Save the vocabulary to a file so the model can be reloaded."""
+    opts = self._options
+    with open(os.path.join(opts.save_path, "vocab.txt"), "w") as f:
+      for i in xrange(opts.vocab_size):
+        vocab_word = tf.compat.as_text(opts.vocab_words[i]).encode("utf-8")
+        f.write("%s %d\n" % (vocab_word,
+                             opts.vocab_counts[i]))
+
 
   def optimize(self, loss):
     """Build the graph to optimize the loss function."""
@@ -392,6 +412,7 @@ class Word2GMtrainer(object):
     # Declare all variables we need.
     # Embedding: [vocab_size, emb_dim]
     init_width = 0.5 / opts.emb_dim
+    #with tf.variable_scope("dict_emb") as scope:
     emb = tf.Variable(
         tf.random_uniform(
             [opts.vocab_size, opts.emb_dim], -init_width, init_width),
@@ -492,7 +513,9 @@ class Word2GMtrainer(object):
       tf.summary.scalar("Group Sparsity Loss", group_sparsity_loss)
       reg_loss = loss + group_sparsity_loss
       tf.summary.scalar("Regularized loss", reg_loss)
-    return reg_loss
+      return reg_loss
+    else:
+      return loss
 
 
   def nce_loss(self, true_logits, sampled_logits):
