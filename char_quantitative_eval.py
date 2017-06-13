@@ -61,7 +61,7 @@ def load_YP():
     return load_data_format1(filename='EN-YP-130.txt', delim=' ')
 
 
-def calculate_correlation(data_loader, metric, model, verbose=True, lower=False):
+def calculate_correlation(data_loader, metric, model, verbose=True, lower=False, option='add'):
     #### data_loader is a function that returns 2 lists of words and the scores
     #### metric is a function that takes w1, w2 and calculate the score
     print('----------------------------------------')
@@ -79,8 +79,8 @@ def calculate_correlation(data_loader, metric, model, verbose=True, lower=False)
       word1 = [word.lower() for word in word1]
       word2 = [word.lower() for word in word2]
 
-    embs1 = model.word_to_emb(word1, option='add')
-    embs2 = model.word_to_emb(word2, option='add')
+    embs1 = model.word_to_emb(word1, option=option)
+    embs2 = model.word_to_emb(word2, option=option)
     print('embs1', embs1)
     scores = np.sum(embs1*embs2, axis=1)
 
@@ -110,7 +110,7 @@ eval_datasets_names = ['SL', 'WS', 'WS-S', 'WS-R', 'MEN',
 
 # performs quantitative evaluation in a batch
 def quantitative_eval(model_names, ckpt_files=None, prefix_dir='', metric_funcs = ['dot'],
-  lower=False, verbose=False):
+  lower=False, verbose=False, char_model=True, option='add'):
   # model_names is a list of pairs (model_abbreviation, save_path)
   # ckpt_file is a list of the same length as model_names, if not None
   assert ckpt_files is None or len(ckpt_files) == len(model_names)
@@ -126,13 +126,13 @@ def quantitative_eval(model_names, ckpt_files=None, prefix_dir='', metric_funcs 
           save_path_full = os.path.join(dir_path, prefix_dir, save_path)
           #ckpt_file = None if ckpt_files is None else ckpt_files[i]
           #w2mg = Word2GM(save_path_full, ckpt_file=ckpt_file, verbose=verbose)
-          model_emb = WordEmb(save_path_full)
+          model_emb = WordEmb(save_path_full, char_model=char_model)
           for metric_name in metric_funcs:
               results = []
               if verbose: print 'metric', metric_name
               for dgen in eval_datasets:
                   if verbose: print 'data', dgen.__name__
-                  _, sp, pe = calculate_correlation(dgen, metric_name, model_emb, lower=lower, verbose=verbose)
+                  _, sp, pe = calculate_correlation(dgen, metric_name, model_emb, lower=lower, verbose=verbose, option=option)
                   #print scores
                   results.append(sp*100)
               colname = '{}/{}'.format(model_abbrev, metric_name)
@@ -141,5 +141,6 @@ def quantitative_eval(model_names, ckpt_files=None, prefix_dir='', metric_funcs 
 
 
 if __name__ == '__main__':
-  model_names = [('1', 'modelfiles/model_word_char_v2-no_gs')]
-  print(quantitative_eval(model_names))
+  #model_names = [('1', 'modelfiles/model_word_char_v2-no_gs')]
+  model_names = [('2', 'modelfiles/model_word_only')]
+  print(quantitative_eval(model_names, char_model=False, option='dict'))

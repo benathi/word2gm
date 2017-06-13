@@ -18,10 +18,10 @@ import numpy as np
 # 
 
 class WordEmb(object):
-  def __init__(self, save_path, session=None, load=True):
+  def __init__(self, save_path, session=None, load=True, char_model=True):
     # load the models
     self.save_path = save_path
-
+    self.char_model = char_model
     # loading options
     options_path = os.path.join(self.save_path, 'options.p')
     self.options = pickle.load(open(options_path, 'r'))
@@ -61,8 +61,24 @@ class WordEmb(object):
 
   def load_model(self):
     opts = self.options
+
+    # (1) word embeddings
+    init_width = 0.5 / opts.emb_dim
+    emb = tf.Variable(
+        tf.random_uniform(
+            [opts.vocab_size, opts.emb_dim], -init_width, init_width),
+        name="emb")
+
+    # This is wout?
+    sm_w_t = tf.Variable(
+        tf.zeros([opts.vocab_size, opts.emb_dim]),
+        name="sm_w_t")
+
+    self.emb = emb
     
-    # (1) subword embeddings
+    # (2) subword embeddings
+    if not self.char_model:
+      return
     with tf.variable_scope("char_emb_all") as scope1:
       with tf.variable_scope("CHAR_MODEL") as scope:
         char_inputs = tf.placeholder(tf.int32, [None, opts.max_word_len], name='char_inputs')
@@ -92,21 +108,9 @@ class WordEmb(object):
             cnn_output = highway(cnn_output, size=dim, layer_size=1, bias=0)
           output = cnn_output
     # now we have output for the char embedding model
-    # (2) word embeddings
-    init_width = 0.5 / opts.emb_dim
-    emb = tf.Variable(
-        tf.random_uniform(
-            [opts.vocab_size, opts.emb_dim], -init_width, init_width),
-        name="emb")
-
-    # This is wout?
-    sm_w_t = tf.Variable(
-        tf.zeros([opts.vocab_size, opts.emb_dim]),
-        name="sm_w_t")
-
-    self.emb = emb
     self.char_inputs = char_inputs
     self.char_output = output
+
 
   # BenA: make sure this is consistent with the model's
   # maybe add this to options
@@ -177,13 +181,16 @@ class WordEmb(object):
 if __name__ == '__main__':
   # BenA: loading seems to do something for sure.
   # Why does the char emb turn out to be all 1 and -1?
+  """
   m = WordEmb(save_path='modelfiles/model_word_char_v2-no_gs/')
   print('Dictionary Embedding')
   print(m.dictionary_embedding(['dog', 'cat']).shape)
   print('Char Embedding')
   print(m.char_embedding(['dog', 'cat']))
   print(m.char_embedding(['dog', 'cat']).shape)
+  """
 
+  m2 = WordEmb(save_path='modelfiles/model_word_only/', char_model=True)
 
 
 
