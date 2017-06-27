@@ -22,7 +22,7 @@ We include a script **get_text8.sh** to download a small dataset **text8** which
 
 
 ## Dependencies
-Tensorflow 0.12
+Tensorflow 0.12 (version number important)
 
 [ggplot](https://github.com/yhat/ggplot.git)
 ```
