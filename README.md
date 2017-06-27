@@ -7,11 +7,11 @@ We represent each word in the dictionary as a Gaussian Mixture distribution and 
 Please cite [Athiwaratkun and Wilson (2017)](https://arxiv.org/abs/1704.08424) if you find this code useful.  The BibTeX entry for the paper is:
 
 ```bibtex
-@article{athiwilson2017,
-  title={Multimodal word distributions},
-  author={Athiwaratkun, Ben and Wilson, Andrew Gordon},
-  journal={arXiv preprint arXiv:1704.08424},
-  year={2017}
+@InProceedings{athiwilson2017,
+    author= {Ben Athiwaratkun and Andrew Gordon Wilson},
+    title= {Multimodal Word Distributions},
+    booktitle = {Conference of the Association for Computational Linguistics (ACL)},
+    year = {2017}
 }
 ```
 
