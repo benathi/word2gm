@@ -8,8 +8,8 @@ Please cite [Athiwaratkun and Wilson (2017)](https://arxiv.org/abs/1704.08424) i
 
 ```bibtex
 @InProceedings{athiwilson2017,
-    author= {Ben Athiwaratkun and Andrew Gordon Wilson},
-    title= {Multimodal Word Distributions},
+    author = {Ben Athiwaratkun and Andrew Gordon Wilson},
+    title = {Multimodal Word Distributions},
     booktitle = {Conference of the Association for Computational Linguistics (ACL)},
     year = {2017}
 }
