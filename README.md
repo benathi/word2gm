@@ -1,17 +1,17 @@
 # Word2GM (Word to Gaussian Mixture)
 
-This is an implementation of the model in *Athiwaratkun and Wilson, Multimodal Word Distributions, 2017, ACL*.
+This is an implementation of the model in *[Athiwaratkun and Wilson](https://arxiv.org/abs/1704.08424), Multimodal Word Distributions, ACL 2017*.
 
 We represent each word in the dictionary as a Gaussian Mixture distribution and train it using a max-margin objective based on expected likelihood kernel energy function.
 
-Please cite [Athiwaratkun and Wilson (2017)](https://arxiv.org/abs/1704.08424) if you find this code useful.  The BibTeX entry for the paper is:
+The BibTeX entry for the paper is:
 
 ```bibtex
-@article{athiwilson2017,
-  title={Multimodal word distributions},
-  author={Athiwaratkun, Ben and Wilson, Andrew Gordon},
-  journal={arXiv preprint arXiv:1704.08424},
-  year={2017}
+@InProceedings{athiwilson2017,
+    author = {Ben Athiwaratkun and Andrew Gordon Wilson},
+    title = {Multimodal Word Distributions},
+    booktitle = {Conference of the Association for Computational Linguistics (ACL)},
+    year = {2017}
 }
 ```
 
@@ -22,7 +22,7 @@ We include a script **get_text8.sh** to download a small dataset **text8** which
 
 
 ## Dependencies
-Tensorflow 0.12
+Tensorflow 0.12 (version number important)
 
 [ggplot](https://github.com/yhat/ggplot.git)
 ```
@@ -45,7 +45,7 @@ Below are the steps for training and visualization with text8 dataset.
 1. Obtain the dataset and train.
 ```
 bash get_text8.sh
-python train_w2gm.py --num_mixtures 2 --train_data data/text8 --spherical --embedding_size 50 --epochs_to_train 10 --var_scale 0.05 --save_path modelfiles/t8-2s-e10-v05-lr05d-mc100-ss5-nwout-adg-win10 --learning_rate 0.05  --subsample 1e-5 --adagrad  --min_count 5 --batch_size 128 --max_to_keep 100 --checkpoint_interval 500 --window_size 10
+python word2gm_trainer.py --num_mixtures 2 --train_data data/text8 --spherical --embedding_size 50 --epochs_to_train 10 --var_scale 0.05 --save_path modelfiles/t8-2s-e10-v05-lr05d-mc100-ss5-nwout-adg-win10 --learning_rate 0.05  --subsample 1e-5 --adagrad  --min_count 5 --batch_size 128 --max_to_keep 100 --checkpoint_interval 500 --window_size 10
 # or simply calling ./train_text8.sh
 ```
 See at the end of page for details on training options.
@@ -67,7 +67,7 @@ Then, navigate the browser to (http://localhost/6006) (or a url of the appropria
 The Tensorboard embeddings visualization tools (please use Firefox or Chrome) allow for nearest neighbors query, in addition to PCA and t-sne visualization. We use the following notation: *x:i* refers to the *i*th mixture component of word 'x'. For instance, querying for 'bank:0' yields 'river:1', 'confluence:0', 'waterway:1' as the nearest neighbors, which means that this component of 'bank' corresponds to river bank. On the other hand, querying for 'bank:1' gives the nearest neighbors 'banking:1', 'banker:0', 'ATM:0', which indicates that this component of 'bank' corresponds to financial bank.
 
 
-We provide visualization for our models trained on *ukWaC+WaCkypedia* for [K=1](http://35.161.153.223:6001), [K=2](http://35.161.153.223:6002), and [K=3](http://35.161.153.223:6003).
+We provide visualization (compatible with Chrome and Firefox) for our models trained on *ukWaC+WaCkypedia* for [K=1](http://35.161.153.223:6001), [K=2](http://35.161.153.223:6002), and [K=3](http://35.161.153.223:6003).
 
 
 ## Trained Model
