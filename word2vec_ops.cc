@@ -1,8 +1,11 @@
 /* Copyright 2015 The TensorFlow Authors. All Rights Reserved.
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,7 +19,7 @@ namespace tensorflow {
 
 REGISTER_OP("SkipgramWord2vec")
     .Output("vocab_word: string")
-    .Output("vocab_freq: int32")
+    .Output("vocab_freq: int64") // Ben A:
     .Output("words_per_epoch: int64")
     .Output("current_epoch: int32")
     .Output("total_words_processed: int64")
@@ -30,6 +33,7 @@ REGISTER_OP("SkipgramWord2vec")
     .Attr("subsample: float = 1e-3")
     .Doc(R"doc(
 Parses a text file and creates a batch of examples.
+
 vocab_word: A vector of words in the corpus.
 vocab_freq: Frequencies of words. Sorted in the non-ascending order.
 words_per_epoch: Number of words per epoch in the data file.
@@ -57,6 +61,7 @@ REGISTER_OP("NegTrainWord2vec")
     .Attr("num_negative_samples: int")
     .Doc(R"doc(
 Training via negative sampling.
+
 w_in: input word embedding.
 w_out: output word embedding.
 examples: A vector of word ids.

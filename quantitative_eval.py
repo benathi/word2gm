@@ -11,7 +11,9 @@ from sklearn.metrics import f1_score
 
 ## 1. Evaluation Data Loading
 def load_SimLex999(filepath='evaluation_data/SimLex-999/SimLex-999.txt'):
-    _fpath = filepath if filepath is not None else os.environ['SIMLEX999_FILE']
+    #_fpath = filepath if filepath is not None else os.environ['SIMLEX999_FILE']
+    _fpath = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+      'evaluation_data/SimLex-999/SimLex-999.txt')
     df = pd.read_csv(_fpath, delimiter='\t')
     word1 = df['word1'].tolist()
     word2 = df['word2'].tolist()

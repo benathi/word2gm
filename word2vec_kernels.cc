@@ -1,8 +1,11 @@
 /* Copyright 2015 The TensorFlow Authors. All Rights Reserved.
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -54,18 +57,24 @@ class SkipgramWord2vecOp : public OpKernel {
     OP_REQUIRES_OK(ctx, ctx->GetAttr("min_count", &min_count_));
     OP_REQUIRES_OK(ctx, ctx->GetAttr("subsample", &subsample_));
     OP_REQUIRES_OK(ctx, Init(ctx->env(), filename));
-
+    // Calling init here. Init needs to signal OK
+    //LOG(INFO) << "This should run without segfault";
+    //LOG(INFO) << "After calling Init";
     mutex_lock l(mu_);
     example_pos_ = corpus_size_;
     label_pos_ = corpus_size_;
     label_limit_ = corpus_size_;
     sentence_index_ = kSentenceSize;
+    //LOG(INFO) << "Precalc Loop";
     for (int i = 0; i < kPrecalc; ++i) {
       NextExample(&precalc_examples_[i].input, &precalc_examples_[i].label);
     }
+    //LOG(INFO) << "After Precalc Loop";
   }
 
   void Compute(OpKernelContext* ctx) override {
+    //LOG(INFO) << "Beginning of Compute";
+    //LOG(INFO) << ".";
     Tensor words_per_epoch(DT_INT64, TensorShape({}));
     Tensor current_epoch(DT_INT32, TensorShape({}));
     Tensor total_words_processed(DT_INT64, TensorShape({}));
@@ -75,6 +84,7 @@ class SkipgramWord2vecOp : public OpKernel {
     auto Tlabels = labels.flat<int32>();
     {
       mutex_lock l(mu_);
+      //LOG(INFO) << "starting loop compute";
       for (int i = 0; i < batch_size_; ++i) {
         Texamples(i) = precalc_examples_[precalc_index_].input;
         Tlabels(i) = precalc_examples_[precalc_index_].label;
@@ -87,10 +97,12 @@ class SkipgramWord2vecOp : public OpKernel {
           }
         }
       }
+      //LOG(INFO) << "Ending loop compute";
       words_per_epoch.scalar<int64>()() = corpus_size_;
       current_epoch.scalar<int32>()() = current_epoch_;
       total_words_processed.scalar<int64>()() = total_words_processed_;
     }
+    //LOG(INFO) << "Setting output";
     ctx->set_output(0, word_);
     ctx->set_output(1, freq_);
     ctx->set_output(2, words_per_epoch);
@@ -109,15 +121,17 @@ class SkipgramWord2vecOp : public OpKernel {
   int32 batch_size_ = 0;
   int32 window_size_ = 5;
   float subsample_ = 1e-3;
-  int min_count_ = 5;
+  int min_count_ = 50;
   int32 vocab_size_ = 0;
   Tensor word_;
   Tensor freq_;
   int64 corpus_size_ = 0;
-  std::vector<int32> corpus_;
+  // Ben A: changed this to int64 on Nov 11
+  std::vector<int64> corpus_;
   std::vector<Example> precalc_examples_;
   int precalc_index_ = 0;
-  std::vector<int32> sentence_;
+  // Ben A: changed this to int64 on Nov 11
+  std::vector<int64> sentence_;
   int sentence_index_ = 0;
 
   mutex mu_;
@@ -125,9 +139,10 @@ class SkipgramWord2vecOp : public OpKernel {
   random::SimplePhilox rng_ GUARDED_BY(mu_);
   int32 current_epoch_ GUARDED_BY(mu_) = -1;
   int64 total_words_processed_ GUARDED_BY(mu_) = 0;
-  int32 example_pos_ GUARDED_BY(mu_);
-  int32 label_pos_ GUARDED_BY(mu_);
-  int32 label_limit_ GUARDED_BY(mu_);
+  // Ben A: changed this to int64 on Nov 11
+  int64 example_pos_ GUARDED_BY(mu_);
+  int64 label_pos_ GUARDED_BY(mu_);
+  int64 label_limit_ GUARDED_BY(mu_);
 
   // {example_pos_, label_pos_} is the cursor for the next example.
   // example_pos_ wraps around at the end of corpus_. For each
@@ -146,8 +161,13 @@ class SkipgramWord2vecOp : public OpKernel {
               example_pos_ = 0;
             }
             if (subsample_ > 0) {
-              int32 word_freq = freq_.flat<int32>()(corpus_[example_pos_]);
+              // Ben A: changed to 64 here
+              //LOG(INFO) << "before word_freq";
+              //LOG(INFO) << "corpus_[example_pos_] =";
+              //LOG(INFO) << corpus_[example_pos_];
+              int64 word_freq = freq_.flat<int64>()(corpus_[example_pos_]);
               // See Eq. 5 in http://arxiv.org/abs/1310.4546
+              //LOG(INFO) << "After word freq";
               float keep_prob =
                   (std::sqrt(word_freq / (subsample_ * corpus_size_)) + 1) *
                   (subsample_ * corpus_size_) / word_freq;
@@ -156,40 +176,49 @@ class SkipgramWord2vecOp : public OpKernel {
                 continue;
               }
             }
+            //LOG(INFO) << "loc 2";
             sentence_[i] = corpus_[example_pos_];
           }
         }
+        //LOG(INFO) << "loc 3";
         const int32 skip = 1 + rng_.Uniform(window_size_);
-        label_pos_ = std::max<int32>(0, sentence_index_ - skip);
+        label_pos_ = std::max<int64>(0, sentence_index_ - skip);
         label_limit_ =
-            std::min<int32>(kSentenceSize, sentence_index_ + skip + 1);
+            std::min<int64>(kSentenceSize, sentence_index_ + skip + 1);
+        //LOG(INFO) << "loc 3";
       }
       if (sentence_index_ != label_pos_) {
         break;
       }
       ++label_pos_;
     }
+    //LOG(INFO) << "loc 4";
     *example = sentence_[sentence_index_];
+    //LOG(INFO) << "loc 5";
     *label = sentence_[label_pos_++];
+    //LOG(INFO) << "loc 6";
   }
 
   Status Init(Env* env, const string& filename) {
+    //LOG(INFO) << "At beginning of Init";
     string data;
     TF_RETURN_IF_ERROR(ReadFileToString(env, filename, &data));
     StringPiece input = data;
     string w;
     corpus_size_ = 0;
-    std::unordered_map<string, int32> word_freq;
+    // Ben A: changed here
+    std::unordered_map<string, int64> word_freq;
     while (ScanWord(&input, &w)) {
       ++(word_freq[w]);
       ++corpus_size_;
     }
     if (corpus_size_ < window_size_ * 10) {
       return errors::InvalidArgument("The text file ", filename,
-                                     " contains too little data: ",
+                                     " contains too little data: boo!!!!",
                                      corpus_size_, " words");
     }
-    typedef std::pair<string, int32> WordFreq;
+    // Ben A: changed here
+    typedef std::pair<string, int64> WordFreq;
     std::vector<WordFreq> ordered;
     for (const auto& p : word_freq) {
       if (p.second >= min_count_) ordered.push_back(p);
@@ -204,31 +233,57 @@ class SkipgramWord2vecOp : public OpKernel {
                 return x.second > y.second;
               });
     vocab_size_ = static_cast<int32>(1 + ordered.size());
+    //LOG(INFO) << "(1)";
     Tensor word(DT_STRING, TensorShape({vocab_size_}));
-    Tensor freq(DT_INT32, TensorShape({vocab_size_}));
+    //LOG(INFO) << "(2)";
+    // Ben A: I changed this to 64
+    Tensor freq(DT_INT64, TensorShape({vocab_size_}));
+    //LOG(INFO) << "(3)";
     word.flat<string>()(0) = "UNK";
+    //LOG(INFO) << "(4)";
     static const int32 kUnkId = 0;
-    std::unordered_map<string, int32> word_id;
+    //LOG(INFO) << "(5)";
+    // Ben A: changed here
+    std::unordered_map<string, int64> word_id;
+    //LOG(INFO) << "(6)";
+    //LOG(INFO) << "changed";
     int64 total_counted = 0;
     for (std::size_t i = 0; i < ordered.size(); ++i) {
+      //LOG(INFO) << "(6.1";
       const auto& w = ordered[i].first;
+      //LOG(INFO) << "(6.2";
       auto id = i + 1;
+      //LOG(INFO) << "(6.3";
       word.flat<string>()(id) = w;
+      //LOG(INFO) << "(6.4";
       auto word_count = ordered[i].second;
-      freq.flat<int32>()(id) = word_count;
+      //LOG(INFO) << "(6.5";
+      // Ben A: changed here
+      freq.flat<int64>()(id) = word_count;
+      //LOG(INFO) << "(6.6";
       total_counted += word_count;
+      //LOG(INFO) << "(6.7";
       word_id[w] = id;
+      //LOG(INFO) << "(6.8";
     }
-    freq.flat<int32>()(kUnkId) = corpus_size_ - total_counted;
+    //LOG(INFO) << "(7)";
+    // Ben A: changed here
+    freq.flat<int64>()(kUnkId) = corpus_size_ - total_counted;
+    //LOG(INFO) << "(8)";
     word_ = word;
     freq_ = freq;
     corpus_.reserve(corpus_size_);
+    //LOG(INFO) << "(9)";
     input = data;
     while (ScanWord(&input, &w)) {
       corpus_.push_back(gtl::FindWithDefault(word_id, w, kUnkId));
     }
+    //LOG(INFO) << "(10)";
     precalc_examples_.resize(kPrecalc);
+    //LOG(INFO) << "(11)";
+    //LOG(INFO) << kSentenceSize;
     sentence_.resize(kSentenceSize);
+    //LOG(INFO) << "(12)";
     return Status::OK();
   }
 };

@@ -1,7 +1,8 @@
 import tensorflow as tf
 import numpy as np
 from matplotlib import pyplot as plt
-from tensorflow.models.embedding import gen_word2vec as word2vec
+import os
+word2vec = tf.load_op_library(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'word2vec_ops.so'))
 import os, re
 import operator
 import sys
