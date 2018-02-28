@@ -15,16 +15,10 @@ The BibTeX entry for the paper is:
 }
 ```
 
-## Training Data
-The data used in the paper is the concatenation of *ukWaC* and *WaCkypedia_EN*, both of which can be requested [here](http://wacky.sslmit.unibo.it/doku.php?id=download).
-
-We include a script **get_text8.sh** to download a small dataset **text8** which can be used to train word embeddings. We note that we can observe the polysemies behaviour even on a small dataset such as text8. That is, some word such as 'rock' has one Gaussian component being close to 'jazz', 'pop', 'blue' and another Gaussian component close to 'stone', 'sediment', 'basalt', etc.
-
-
 ## Dependencies
-Tensorflow 0.12 (version number important)
+This code is tested on Tensorflow 1.5.0 (Other version of tensorflow (1.0)+ might work as well).
 
-[ggplot](https://github.com/yhat/ggplot.git)
+For plotting, we use [ggplot](https://github.com/yhat/ggplot.git)
 ```
 pip install -U ggplot
 # or 
@@ -32,6 +26,12 @@ conda install -c conda-forge ggplot
 # or
 pip install git+https://github.com/yhat/ggplot.git
 ```
+
+## Training Data
+The data used in the paper is the concatenation of *ukWaC* and *WaCkypedia_EN*, both of which can be requested [here](http://wacky.sslmit.unibo.it/doku.php?id=download).
+
+We include a script **get_text8.sh** to download a small dataset **text8** which can be used to train word embeddings. We note that we can observe the polysemies behaviour even on a small dataset such as text8. That is, some word such as 'rock' has one Gaussian component being close to 'jazz', 'pop', 'blue' and another Gaussian component close to 'stone', 'sediment', 'basalt', etc.
+
 
 ## Training
 
@@ -42,6 +42,12 @@ For UKWAC+Wackypedia, the training script **train_wac.sh** contains our command 
 
 ## Steps
 Below are the steps for training and visualization with text8 dataset.
+0. Compile C skipgram module for tensorflow training. This generates word2vec_ops.so file which we will use when we import this module in the python code. Note that this version of the code supports training on large datasets without compiling the entire Tensorflow library from source (unlike in the previous version of our code).
+```
+chmod +x compile_skipgram_ops.sh
+./compile_skipgram_ops.sh
+```
+
 1. Obtain the dataset and train.
 ```
 bash get_text8.sh
@@ -72,13 +78,6 @@ We provide visualization (compatible with Chrome and Firefox) for our models tra
 
 ## Trained Model
 We provide a trained model for K=2 [here](http://35.161.153.223:6004/w2gm-k2-d50.tar.gz). To analyze the model, see **Analyze Model.ipynb**. The code expects the model to be extracted to directory **modelfiles/w2gm-k2-d50/**.
-
-
-### Training on large datasets
-Our code relies on the word sampling implementation of Tensorflow. Existing implementation of Tensorflow can handle a dataset up to a certain size (~4GB) but would throw an error for larger datasets such as *ukWaC+WaCkypedia* (17GB).
-
-To train on a very large dataset, we provide a version of Tensorflow (0.11.0rc1) with a modified SkipGram method that can handle large datasets (https://github.com/benathi/tensorflow_0.11_robust_skipgram). You can build Tensorflow from source using this version. (See instructions for building from source [here](https://www.tensorflow.org/versions/r0.11/get_started/os_setup#installing_from_sources).) Large datasets also require large RAM since we load the entire dataset into memory. For *ukWaC+WaCkypedia*, a required RAM is about 32GB+.
-
 
 
 ## Training Options
