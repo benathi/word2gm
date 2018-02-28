@@ -16,7 +16,7 @@ The BibTeX entry for the paper is:
 ```
 
 ## Dependencies
-This code is tested on Tensorflow 1.5.0 (Other version of tensorflow (1.0)+ might work as well).
+This code is tested on Tensorflow 1.5.0. The code should be compatible with Tensorflow 1.0 and above.
 
 For plotting, we use [ggplot](https://github.com/yhat/ggplot.git)
 ```
