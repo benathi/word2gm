@@ -19,7 +19,7 @@ The BibTeX entry for the paper is:
 Feb 27 2018: We updated the code to be compatible with tensorflow 1.0+. Training on large datasets also no longer need tf installation from source. In this version, we provide modified skipgram c ops to handle large dataset training. 
 
 ## Dependencies
-This code is tested on Tensorflow 1.5.0. The code should be compatible with Tensorflow 1.0 and above. \\
+This code is tested on Tensorflow 1.5.0. The code should be compatible with Tensorflow 1.0 and above. 
 
 Note:This repository was previously compatible with Tensorflow 0.12 but the support for pre tf1.0 will not be maintained. However, you can access it at this [commit](https://github.com/benathi/word2gm/tree/90a3f50cb66d4f863eed90913bc31dbdd8064fd4).
 
