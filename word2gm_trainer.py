@@ -243,19 +243,15 @@ class Word2GMtrainer(object):
     self.save_vocab()
 
 
-  def _embedding_lookup(self,embedding_matrix,ids,embedding_name=None, spherical=False):
-      if spherical:
-        result = tf.zeros([self._options.batch_size,self.num_mixtures_max, 1])
-      else:
-        result = tf.zeros([self._options.batch_size,self.num_mixtures_max, self._options.emb_dim])
+  def _embedding_lookup(self,embedding_matrix,ids,tensor_var,embedding_name=""):
       for i in range(self._options.batch_size): 
           _id = ids[i]
           if _id in self.mixture_dictionary:
               if embedding_name: 
-                result[i,:,:] = tf.nn.embedding_lookup(embedding_matrix, self.mixture_dictionary[_id], name=embedding_name)
+                 tensor_var[i,:,:] = tf.nn.embedding_lookup(embedding_matrix, self.mixture_dictionary[_id], name=embedding_name)
               else: 
-                result[i,:,:] = tf.nn.embedding_lookup(embedding_matrix, self.mixture_dictionary[_id])
-      return result
+                tensor_var[i,:,:] = tf.nn.embedding_lookup(embedding_matrix, self.mixture_dictionary[_id])
+      return tensor_var
 
   def optimize(self, loss):
     """Build the graph to optimize the loss function."""
@@ -421,9 +417,6 @@ class Word2GMtrainer(object):
           log_e = log_e_max*tf.gather(mix_list, log_e_argmax)
         else:
           mix_pack = tf.stack(mix_list)
-          print("mix_pac", mix_pack.shape)
-          print("log_e_pack", log_e_pack.shape)
-          print("log_e_max", log_e_max.shape)
           log_e = tf.log(tf.reduce_sum(mix_pack*tf.exp(log_e_pack-log_e_max), reduction_indices=0))
           log_e += log_e_max
         return log_e
@@ -431,16 +424,34 @@ class Word2GMtrainer(object):
 
     def Lfunc(word_idxs, pos_idxs, neg_idxs):
       with tf.name_scope('LossCal') as scope:
-        mu_embed = self._embedding_lookup(mus, word_idxs, 'MuWord')
-        mu_embed_pos = self._embedding_lookup(mus_out, pos_idxs, 'MuPos')
-        mu_embed_neg = self._embedding_lookup(mus_out, neg_idxs, 'MuNeg')
-        sig_embed = tf.exp(self._embedding_lookup(logsigs, word_idxs, spherical=spherical), name='SigWord')
-        sig_embed_pos = tf.exp(self._embedding_lookup(logsigs_out, pos_idxs, spherical=spherical), name='SigPos')
-        sig_embed_neg = tf.exp(self._embedding_lookup(logsigs_out, neg_idxs, spherical=spherical), name='SigNeg')
+        mu_embed_tf = tf.get_variable("mu_embed_tf", shape=[self._options.batch_size, self.num_mixtures_max,self._options.emb_dim])
+        mu_embed_pos_tf = tf.get_variable("mu_embed_pos_tf", shape=[self._options.batch_size, self.num_mixtures_max,self._options.emb_dim])
+        mu_embed_neg_tf = tf.get_variable("mu_embed_neg_tf", shape=[self._options.batch_size, self.num_mixtures_max,self._options.emb_dim])
+        
+        mu_embed = self._embedding_lookup(mus, word_idxs, mu_embed_tf, "MuWord")
+        mu_embed_pos = self._embedding_lookup(mus_out, pos_idxs, mu_embed_pos_tf, "MuPos")
+        mu_embed_neg = self._embedding_lookup(mus_out, neg_idxs, mu_embed_neg_tf, "MuNeg")
+        
+        if spherical:
+            sig_embed_tf = tf.get_variable("sig_embed_tf", shape=[self._options.batch_size, self.num_mixtures_max,1])
+            sig_embed_pos_tf = tf.get_variable("sig_embed_pos_tf", shape=[self._options.batch_size, self.num_mixtures_max,1])
+            sig_embed_neg_tf = tf.get_variable("sig_embed_neg_tf", shape=[self._options.batch_size, self.num_mixtures_max,1])
+        else: 
+            sig_embed_tf = tf.get_variable("sig_embed_tf", shape=[self._options.batch_size, self.num_mixtures_max,self._options.emb_dim])
+            sig_embed_pos_tf = tf.get_variable("sig_embed_pos_tf", shape=[self._options.batch_size, self.num_mixtures_max,self._options.emb_dim])
+            sig_embed_neg_tf = tf.get_variable("sig_embed_neg_tf", shape=[self._options.batch_size, self.num_mixtures_max,self._options.emb_dim])
 
-        mix_word = tf.nn.softmax(self._embedding_lookup(mixture, word_idxs), name='MixWord')
-        mix_pos = tf.nn.softmax(self._embedding_lookup(mixture_out, pos_idxs), name='MixPos')
-        mix_neg = tf.nn.softmax(self._embedding_lookup(mixture_out, neg_idxs), name='MixNeg')
+        sig_embed= tf.exp(self._embedding_lookup(logsigs, word_idxs,sig_embed_tf), name='SigWord')
+        sig_embed_pos = tf.exp(self._embedding_lookup(logsigs_out, pos_idxs, sig_embed_pos_tf), name='SigPos')
+        sig_embed_neg = tf.exp(self._embedding_lookup(logsigs_out, neg_idxs, sig_embed_neg_tf), name='SigNeg')
+        
+        mix_word_tf = tf.get_variable("mix_word_tf", shape=[self._options.batch_size, self.num_mixtures_max])
+        mix_pos_tf = tf.get_variable("mix_pos_tf", shape=[self._options.batch_size, self.num_mixtures_max])
+        mix_neg_tf = tf.get_variable("mix_neg_tf", shape=[self._options.batch_size, self.num_mixtures_max])
+
+        mix_word = tf.nn.softmax(self._embedding_lookup(mixture, word_idxs, mix_word_tf), name='MixWord')
+        mix_pos = tf.nn.softmax(self._embedding_lookup(mixture_out, pos_idxs, mix_pos_tf), name='MixPos')
+        mix_neg = tf.nn.softmax(self._embedding_lookup(mixture_out, neg_idxs, mix_neg_tf), name='MixNeg')
         
         epos = log_energy(mu_embed, sig_embed, mix_word, mu_embed_pos, sig_embed_pos, mix_pos)
         eneg = log_energy(mu_embed, sig_embed, mix_word, mu_embed_neg, sig_embed_neg, mix_neg)
