@@ -525,7 +525,7 @@ class Word2GMtrainer(object):
     # Properly initialize all variables.
     self.check_op = tf.add_check_numerics_ops()
 
-    tf.initialize_all_variables().run()
+    tf.initialize_all_variables().run(session=self._session )
 
     try:
       print('Try using saver version v2')
@@ -625,10 +625,10 @@ def split_decider(thresh,mixture_dictionary,session):
                     num_mixtures_max= len(mixtures)
     for word_id in mixture_dictionary:
         mixtures = mixture_dictionary[word_id]
-        if len(mixtures)<num_mixtures_max: 
+        if len(mixtures)<num_mixtures_max:
             additional_num = num_mixtures_max - mixtues
             additional_choices = np.random.choice(len(mixtures), additional_num)
-            for choice in additional_choices: 
+            for choice in additional_choices:
                 mixtures.append(mixtures[choice])
             mixture_dictionary[word_id] = mixtures
     return num_mixtures_max, total_additional
