@@ -491,51 +491,49 @@ class Word2GMtrainer(object):
   def build_graph(self):
     """Build the graph for the full model."""
     opts = self._options
-    # The training data. A text file.
-    (words, counts, words_per_epoch, self._epoch, self._words, examples,
-     labels) = word2vec.skipgram_word2vec(filename=opts.train_data,
-                                 batch_size=opts.batch_size,
-                                 window_size=opts.window_size,
-                                 min_count=opts.min_count,
-                                 subsample=opts.subsample)
-    (opts.vocab_words, opts.vocab_counts,
-     opts.words_per_epoch) = self._session.run([words, counts, words_per_epoch])
-    opts.vocab_size = len(opts.vocab_words)
-    print("Data file: ", opts.train_data)
-    print("Vocab size: ", opts.vocab_size - 1, " + UNK")
-    print("Words per epoch: ", opts.words_per_epoch)
-    self._examples = examples
-    self._labels = labels
-    self._id2word = opts.vocab_words
-    for i, w in enumerate(self._id2word):
-      self._word2id[w] = i
-      if not self.mixture_dictionary:
-        self.mixture_dictionary[i] = [i]
-    loss = self.calculate_loss(examples, labels)
-    self._loss = loss
-    tf.get_variable_scope().reuse_variables()
+    with tf.variable_scope('', reuse=tf.AUTO_REUSE):
+        # The training data. A text file.
+        (words, counts, words_per_epoch, self._epoch, self._words, examples,
+         labels) = word2vec.skipgram_word2vec(filename=opts.train_data,
+                                     batch_size=opts.batch_size,
+                                     window_size=opts.window_size,
+                                     min_count=opts.min_count,
+                                     subsample=opts.subsample)
+        (opts.vocab_words, opts.vocab_counts,
+         opts.words_per_epoch) = self._session.run([words, counts, words_per_epoch])
+        opts.vocab_size = len(opts.vocab_words)
+        print("Data file: ", opts.train_data)
+        print("Vocab size: ", opts.vocab_size - 1, " + UNK")
+        print("Words per epoch: ", opts.words_per_epoch)
+        self._examples = examples
+        self._labels = labels
+        self._id2word = opts.vocab_words
+        for i, w in enumerate(self._id2word):
+          self._word2id[w] = i
+          if not self.mixture_dictionary:
+            self.mixture_dictionary[i] = [i]
+        loss = self.calculate_loss(examples, labels)
+        self._loss = loss
+        if opts.normclip:
+          self._clip_ops = self.clip_ops_graph(self._examples, self._labels, self._neg_idxs)
 
+        if opts.adagrad:
+          print("Using Adagrad as an optimizer!")
+          self.optimize_adagrad(loss)
+        else:
+          # Using Standard SGD
+          self.optimize(loss)
+        # Properly initialize all variables.
+        self.check_op = tf.add_check_numerics_ops()
 
-    if opts.normclip:
-      self._clip_ops = self.clip_ops_graph(self._examples, self._labels, self._neg_idxs)
+        tf.initialize_all_variables().run()
 
-    if opts.adagrad:
-      print("Using Adagrad as an optimizer!")
-      self.optimize_adagrad(loss)
-    else:
-      # Using Standard SGD
-      self.optimize(loss)
-    # Properly initialize all variables.
-    self.check_op = tf.add_check_numerics_ops()
-
-    tf.initialize_all_variables().run()
-
-    try:
-      print('Try using saver version v2')
-      self.saver = tf.train.Saver(write_version=tf.train.SaverDef.V2, max_to_keep = opts.max_to_keep)
-    except:
-      print('Default to saver version v1')
-      self.saver = tf.train.Saver(max_to_keep=opts.max_to_keep)
+        try:
+          print('Try using saver version v2')
+          self.saver = tf.train.Saver(write_version=tf.train.SaverDef.V2, max_to_keep = opts.max_to_keep)
+        except:
+          print('Default to saver version v1')
+          self.saver = tf.train.Saver(max_to_keep=opts.max_to_keep)
 
   def save_vocab(self):
     """Save the vocabulary to a file so the model can be reloaded."""
