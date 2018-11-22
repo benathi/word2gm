@@ -512,6 +512,8 @@ class Word2GMtrainer(object):
       self._word2id[w] = i
       if temp:
         self.mixture_dictionary[i] = [i]
+    if temp:
+        pickle.dump(self._word2id, open("word2id.pkl", 'wb'))
     loss = self.calculate_loss(examples, labels)
     self._loss = loss
     if opts.normclip:
@@ -657,7 +659,7 @@ def main(_):
     model = Word2GMtrainer(opts, session,mixture_dictionary,1,0)
   for i in xrange(1,opts.epochs_to_train+1):
     print("++++++++++++++++++",i,"++++++++++++++++++++++")
-    if i % 1 != 0:
+    if i % 3 != 0:
      _,mixture_dictionary = model.train()
     else:
          # print("MIXTURE", mixture_dictionary)
@@ -670,10 +672,15 @@ def main(_):
          model = Word2GMtrainer(opts,session,mixture_dictionary,num_mixtures_max,total_additional)
          _,mixture_dictionary = model.train()
         # Perform a final save.
+
   model.saver.save(session,
                    os.path.join(opts.save_path, "model.ckpt"),
                    global_step=model.global_step)
-
+  with tf.variable_scope('', reuse=tf.AUTO_REUSE):
+      sigmas = session.run(tf.get_variable("sigma"))
+      mus = session.run(tf.get_variable("mu"))
+      np.save("sigma.npy",sigmas)
+      np.save("mu.npy", mus)
   pickle.dump(mixture_dictionary, open("mixture.pkl", "wb"))
 if __name__ == "__main__":
   tf.app.run()
