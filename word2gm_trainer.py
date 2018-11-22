@@ -513,8 +513,7 @@ class Word2GMtrainer(object):
         self.mixture_dictionary[i] = [i]
     loss = self.calculate_loss(examples, labels)
     self._loss = loss
-
-
+    tf.get_variable_scope().reuse_variables()
 
 
     if opts.normclip:
