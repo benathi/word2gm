@@ -23,6 +23,7 @@ from six.moves import xrange  # pylint: disable=redefined-builtin
 
 import numpy as np
 import tensorflow as tf
+import pickle
 
 #from tensorflow.models.embedding import gen_word2vec as word2vec
 #word2vec = tf.load_op_library(os.path.join(os.path.di))
@@ -654,6 +655,6 @@ def main(_):
     model.saver.save(session,
                      os.path.join(opts.save_path, "model.ckpt"),
                      global_step=model.global_step)
-
+    pickle.dump(mixture_dictionary, open("mixture.pkl", "wb"))
 if __name__ == "__main__":
   tf.app.run()
