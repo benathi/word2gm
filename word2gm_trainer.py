@@ -610,25 +610,24 @@ def split_decider(thresh,mixture_dictionary,session):
     total_additional = 0
     num_mixtures_max = 1
     with tf.variable_scope('', reuse=tf.AUTO_REUSE):
-        sigmas = tf.get_variable("sigma")
+        sigmas = session.run(tf.get_variable("sigma"))
+    print(sigmas.shape)
     word_count = sigmas.shape[0]
     print("start 2")
-    c = 0
     for word_id in mixture_dictionary:
-        c+=1
-        if c % 10 == 0:
-            print(c)
         mixtures = mixture_dictionary[word_id]
-        sigma_group = tf.nn.embedding_lookup(sigmas,mixtures)
-        sigma_norms = tf.norm(sigma_group, axis=0)
-        sigma_norms_run = session.run(sigma_norms)
-        for sigma_norm in sigma_norms_run:
+        tmp = mixtures
+        for mixture in mixtures:
+            sigma = sigmas[mixture,:]
+            sigma_norm = np.linalg.norm(sigma)
             if sigma_norm> thresh:
-                mixtures.append(word_count)
+                print(sigma_norm)
+                tmp.append(word_count)
                 word_count+=1
                 total_additional+=1
-                if len(mixtures)>num_mixtures_max:
-                    num_mixtures_max= len(mixtures)
+                if len(tmp)>num_mixtures_max:
+                    num_mixtures_max= len(tmp)
+        mixture_dictionary[word_id] = tmp
     print("end 2")
     for word_id in mixture_dictionary:
         mixtures = mixture_dictionary[word_id]
