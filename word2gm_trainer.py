@@ -623,6 +623,14 @@ def split_decider(thresh,mixture_dictionary,session):
                 total_additional+=1
                 if len(mixtures)>num_mixtures_max:
                     num_mixtures_max= len(mixtures)
+    for word_id in mixture_dictionary:
+        mixtures = mixture_dictionary[word_id]
+        if len(mixtures)<num_mixtures_max: 
+            additional_num = num_mixtures_max - mixtues
+            additional_choices = np.random.choice(len(mixtures), additional_num)
+            for choice in additional_choices: 
+                mixtures.append(mixtures[choice])
+            mixture_dictionary[word_id] = mixtures
     return num_mixtures_max, total_additional
 
 def main(_):
