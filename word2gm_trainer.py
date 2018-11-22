@@ -654,7 +654,7 @@ def main(_):
       else:
         #perform check here, re update the dictionary.
         num_mixtures_max,total_additional = split_decider(5,mixture_dictionary,session)
-        model = Word2GMtrainer(opts,sesson,mixture_dictionary,num_mixtures_max,total_additional)
+        model = Word2GMtrainer(opts,session,mixture_dictionary,num_mixtures_max,total_additional)
         model.train()
     # Perform a final save.
     model.saver.save(session,
