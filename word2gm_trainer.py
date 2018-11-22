@@ -212,7 +212,7 @@ class Options(object):
 
 class Word2GMtrainer(object):
 
-  def __init__(self, options, session):
+  def __init__(self, options, session, mixture_dictionary,num_mixtures_max,total_additional):
     self._options = options
     # Ben A: print important opts
     opts = options
@@ -236,9 +236,9 @@ class Word2GMtrainer(object):
     self._session = session
     self._word2id = {}
     self._id2word = []
-    self.total_additional_mixtures = 0
-    self.mixture_dictionary = {}
-    self.num_mixtures_max = 1
+    self.total_additional_mixtures = total_additional
+    self.mixture_dictionary = mixture_dictionary
+    self.num_mixtures_max = num_mixtures_max
     self.build_graph() # 
     self.save_vocab()
 
@@ -508,7 +508,8 @@ class Word2GMtrainer(object):
     self._id2word = opts.vocab_words
     for i, w in enumerate(self._id2word):
       self._word2id[w] = i
-      self.mixture_dictionary[i] = [i]
+      if not self.mixture_dictionary:
+        self.mixture_dictionary[i] = [i]
     loss = self.calculate_loss(examples, labels)
     self._loss = loss
     
@@ -607,7 +608,27 @@ def _start_shell(local_ns=None):
   user_ns.update(globals())
   IPython.start_ipython(argv=[], user_ns=user_ns)
 
+def split_decider(thresh,mixture_dictionary,session):
+    total_additional = 0
+    num_mixtures_max = 1
+    sigmas = tf.get_variable("sigma")
+    word_count = sigmas.shape[0]
+    for word_id in mixture_dictionary: 
+        mixtures = mixture_dictionary[word_id]
+        for mixture in mixtures: 
+            sigma = tf.nn.embedding_lookup(sigmas,mixture)
+            sigma = session.run(sigma)
+            sigma_norm = np.linalg.norm(sigma)
+            if sigma_norm> thresh:
+                mixtures.append(word_count)
+                word_count+=1
+                total_additional+=1
+                if len(mixtures)>num_mixtures_max:
+                    num_mixtures_max= len(mixtures)
+    return num_mixtures_max, total_additional
+
 def main(_):
+  mixture_dictionary = {}
   if not FLAGS.train_data or not FLAGS.save_path:
     print("--train_data and --save_path must be specified.")
     sys.exit(1)
@@ -620,9 +641,15 @@ def main(_):
   print('Saving results to {}'.format(opts.save_path))
   with tf.Graph().as_default(), tf.Session() as session:
     with tf.device("/cpu:0"):
-      model = Word2GMtrainer(opts, session)
-    for _ in xrange(opts.epochs_to_train):
-      model.train()  
+      model = Word2GMtrainer(opts, session,mixture_dictionary,1,0)
+    for i in xrange(1,opts.epochs_to_train+1):
+      if i % 5 != 0:
+        model.train()  
+      else:
+        #perform check here, re update the dictionary. 
+        mixture_dictionary,num_mixtures,total_additional = split_decider(5,mixture_dictionary,session)
+        model = Word2GMtrainer(opts,sesson,mixture_dictionary,num_mixtures_max,total_additional)
+        model.train()
     # Perform a final save.
     model.saver.save(session,
                      os.path.join(opts.save_path, "model.ckpt"),
