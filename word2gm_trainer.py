@@ -645,21 +645,23 @@ def main(_):
     print('The directory already exists', FLAGS.save_path)
   opts = Options()
   print('Saving results to {}'.format(opts.save_path))
-  with tf.Graph().as_default(), tf.Session() as session:
-    with tf.device("/cpu:0"):
-      model = Word2GMtrainer(opts, session,mixture_dictionary,1,0)
-    for i in xrange(1,opts.epochs_to_train+1):
-      if i % 5 != 0:
-        model.train()
-      else:
-        #perform check here, re update the dictionary.
-        num_mixtures_max,total_additional = split_decider(5,mixture_dictionary,session)
-        model = Word2GMtrainer(opts,session,mixture_dictionary,num_mixtures_max,total_additional)
-        model.train()
+  with tf.device("/cpu:0"):
+    session = tf.Session()
+    model = Word2GMtrainer(opts, session,mixture_dictionary,1,0)
+  for i in xrange(1,opts.epochs_to_train+1):
+    if i % 1 != 0:
+     model.train()
+    else:
+     #perform check here, re update the dictionary.
+     num_mixtures_max,total_additional = split_decider(5,mixture_dictionary,session)
+     tf.reset_default_graph()
+     session = tf.Session()
+     model = Word2GMtrainer(opts,session,mixture_dictionary,num_mixtures_max,total_additional)
+     model.train()
     # Perform a final save.
-    model.saver.save(session,
-                     os.path.join(opts.save_path, "model.ckpt"),
-                     global_step=model.global_step)
-    pickle.dump(mixture_dictionary, open("mixture.pkl", "wb"))
+  model.saver.save(session,
+                   os.path.join(opts.save_path, "model.ckpt"),
+                   global_step=model.global_step)
+  pickle.dump(mixture_dictionary, open("mixture.pkl", "wb"))
 if __name__ == "__main__":
   tf.app.run()
