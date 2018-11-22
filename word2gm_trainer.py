@@ -168,13 +168,13 @@ class Options(object):
     self.num_mixtures = FLAGS.num_mixtures # incorporated. needs testing
 
     # upper bound of norm of mu
-    self.norm_cap = FLAGS.norm_cap 
+    self.norm_cap = FLAGS.norm_cap
 
     # element-wise lower bound for sigma
-    self.lower_sig = FLAGS.lower_sig 
+    self.lower_sig = FLAGS.lower_sig
 
     # element-wise upper bound for sigma
-    self.upper_sig = FLAGS.upper_sig 
+    self.upper_sig = FLAGS.upper_sig
 
     # whether to use spherical or diagonal covariance
     self.spherical = FLAGS.spherical   ## default to False please
@@ -239,17 +239,17 @@ class Word2GMtrainer(object):
     self.total_additional_mixtures = total_additional
     self.mixture_dictionary = mixture_dictionary
     self.num_mixtures_max = num_mixtures_max
-    self.build_graph() # 
+    self.build_graph() #
     self.save_vocab()
 
 
   def _embedding_lookup(self,embedding_matrix,ids,tensor_var,embedding_name=""):
-      for i in range(self._options.batch_size): 
+      for i in range(self._options.batch_size):
           _id = ids[i]
           if _id in self.mixture_dictionary:
-              if embedding_name: 
+              if embedding_name:
                  tensor_var[i,:,:] = tf.nn.embedding_lookup(embedding_matrix, self.mixture_dictionary[_id], name=embedding_name)
-              else: 
+              else:
                 tensor_var[i,:,:] = tf.nn.embedding_lookup(embedding_matrix, self.mixture_dictionary[_id])
       return tensor_var
 
@@ -325,9 +325,9 @@ class Word2GMtrainer(object):
     # the model parameters
     mu_scale = opts.mu_scale*math.sqrt(3.0/(1.0*embedding_size))
     total_size = vocabulary_size + self.total_additional_mixtures
-    mus = tf.Variable(tf.random_uniform([total_size, embedding_size], -mu_scale, mu_scale), name='mu')
+    mus = tf.get_variable('mu', initializer=tf.random_uniform([total_size, embedding_size], -mu_scale, mu_scale))
     if opts.wout:
-      mus_out = tf.Variable(tf.random_uniform([total_size, embedding_size], -mu_scale, mu_scale), name='mu_out')
+      mus_out = tf.get_variable('mu_out', initializer=tf.random_uniform([total_size, embedding_size], -mu_scale, mu_scale))
     # This intialization makes the variance around 1
     var_scale = opts.var_scale
     logvar_scale = math.log(var_scale)
@@ -335,22 +335,22 @@ class Word2GMtrainer(object):
     var_trainable = 1-self._options.fixvar
     print('var trainable =', var_trainable)
     if spherical:
-      logsigs = tf.Variable(tf.random_uniform([total_size,1], 
-                                              logvar_scale, logvar_scale), name='sigma', trainable=var_trainable)
+      logsigs = tf.get_variable('sigma', initializer= tf.random_uniform([total_size,1],
+                                              logvar_scale, logvar_scale), trainable=var_trainable)
       if opts.wout:
-        logsigs_out = tf.Variable(tf.random_uniform([total_size,1], 
-                                              logvar_scale, logvar_scale), name='sigma_out', trainable=var_trainable)
+        logsigs_out = tf.get_variable('sigma_out', initializer=tf.random_uniform([total_size,1],
+                                              logvar_scale, logvar_scale), trainable=var_trainable)
 
     else:
-      logsigs = tf.Variable(tf.random_uniform([total_size, embedding_size], 
-                                              logvar_scale, logvar_scale), name='sigma', trainable=var_trainable)
+      logsigs = tf.get_variable('sigma', initializer=tf.random_uniform([total_size, embedding_size],
+                                              logvar_scale, logvar_scale), trainable=var_trainable)
       if opts.wout:
-        logsigs_out = tf.Variable(tf.random_uniform([total_size, embedding_size], 
-                                              logvar_scale, logvar_scale), name='sigma_out', trainable=var_trainable)
+        logsigs_out = tf.get_variable('sigma_out', initializer=tf.random_uniform([total_size, embedding_size],
+                                              logvar_scale, logvar_scale), trainable=var_trainable)
 
-    mixture = tf.Variable(tf.random_uniform([total_size], 0, 0), name='mixture')
+    mixture = tf.get_variable('mizture', initializer=tf.random_uniform([total_size], 0, 0))
     if opts.wout:
-      mixture_out = tf.Variable(tf.random_uniform([total_size], 0, 0), name='mixture_out')
+      mixture_out = tf.get_variable('mixture_out', initializer=tf.random_uniform([total_size], 0, 0))
 
     if not opts.wout:
       mus_out = mus
@@ -377,7 +377,7 @@ class Word2GMtrainer(object):
     self._neg_idxs = neg_idxs
 
     def log_energy(mu1, sig1, mix1, mu2, sig2, mix2):
-      ### need to pass mix that's compatible!   
+      ### need to pass mix that's compatible!
 
       def partial_logenergy(cl1, cl2):
         m1 = mu1[:,cl1,:]
@@ -420,23 +420,23 @@ class Word2GMtrainer(object):
           log_e = tf.log(tf.reduce_sum(mix_pack*tf.exp(log_e_pack-log_e_max), reduction_indices=0))
           log_e += log_e_max
         return log_e
-        
+
 
     def Lfunc(word_idxs, pos_idxs, neg_idxs):
       with tf.name_scope('LossCal') as scope:
         mu_embed_tf = tf.get_variable("mu_embed_tf", shape=[self._options.batch_size, self.num_mixtures_max,self._options.emb_dim])
         mu_embed_pos_tf = tf.get_variable("mu_embed_pos_tf", shape=[self._options.batch_size, self.num_mixtures_max,self._options.emb_dim])
         mu_embed_neg_tf = tf.get_variable("mu_embed_neg_tf", shape=[self._options.batch_size, self.num_mixtures_max,self._options.emb_dim])
-        
+
         mu_embed = self._embedding_lookup(mus, word_idxs, mu_embed_tf, "MuWord")
         mu_embed_pos = self._embedding_lookup(mus_out, pos_idxs, mu_embed_pos_tf, "MuPos")
         mu_embed_neg = self._embedding_lookup(mus_out, neg_idxs, mu_embed_neg_tf, "MuNeg")
-        
+
         if spherical:
             sig_embed_tf = tf.get_variable("sig_embed_tf", shape=[self._options.batch_size, self.num_mixtures_max,1])
             sig_embed_pos_tf = tf.get_variable("sig_embed_pos_tf", shape=[self._options.batch_size, self.num_mixtures_max,1])
             sig_embed_neg_tf = tf.get_variable("sig_embed_neg_tf", shape=[self._options.batch_size, self.num_mixtures_max,1])
-        else: 
+        else:
             sig_embed_tf = tf.get_variable("sig_embed_tf", shape=[self._options.batch_size, self.num_mixtures_max,self._options.emb_dim])
             sig_embed_pos_tf = tf.get_variable("sig_embed_pos_tf", shape=[self._options.batch_size, self.num_mixtures_max,self._options.emb_dim])
             sig_embed_neg_tf = tf.get_variable("sig_embed_neg_tf", shape=[self._options.batch_size, self.num_mixtures_max,self._options.emb_dim])
@@ -444,7 +444,7 @@ class Word2GMtrainer(object):
         sig_embed= tf.exp(self._embedding_lookup(logsigs, word_idxs,sig_embed_tf), name='SigWord')
         sig_embed_pos = tf.exp(self._embedding_lookup(logsigs_out, pos_idxs, sig_embed_pos_tf), name='SigPos')
         sig_embed_neg = tf.exp(self._embedding_lookup(logsigs_out, neg_idxs, sig_embed_neg_tf), name='SigNeg')
-        
+
         mix_word_tf = tf.get_variable("mix_word_tf", shape=[self._options.batch_size, self.num_mixtures_max])
         mix_pos_tf = tf.get_variable("mix_pos_tf", shape=[self._options.batch_size, self.num_mixtures_max])
         mix_neg_tf = tf.get_variable("mix_neg_tf", shape=[self._options.batch_size, self.num_mixtures_max])
@@ -452,7 +452,7 @@ class Word2GMtrainer(object):
         mix_word = tf.nn.softmax(self._embedding_lookup(mixture, word_idxs, mix_word_tf), name='MixWord')
         mix_pos = tf.nn.softmax(self._embedding_lookup(mixture_out, pos_idxs, mix_pos_tf), name='MixPos')
         mix_neg = tf.nn.softmax(self._embedding_lookup(mixture_out, neg_idxs, mix_neg_tf), name='MixNeg')
-        
+
         epos = log_energy(mu_embed, sig_embed, mix_word, mu_embed_pos, sig_embed_pos, mix_pos)
         eneg = log_energy(mu_embed, sig_embed, mix_word, mu_embed_neg, sig_embed_neg, mix_neg)
         loss_indiv = tf.maximum(zeros_vec, objective_threshold - epos + eneg, name='CalculateIndividualLoss')
@@ -477,7 +477,7 @@ class Word2GMtrainer(object):
         to_update = tf.nn.embedding_lookup(embedding, idxs)
         to_update = tf.clip_by_norm(to_update, self.norm_cap, axes=2)
         return tf.scatter_update(embedding, idxs, to_update)
-    
+
     clip1 = clip_norm_ref(self._mus, word_idxs)
     clip2 = clip_norm_ref(self._mus, pos_idxs)
     clip3 = clip_norm_ref(self._mus, neg_idxs)
@@ -512,10 +512,10 @@ class Word2GMtrainer(object):
         self.mixture_dictionary[i] = [i]
     loss = self.calculate_loss(examples, labels)
     self._loss = loss
-    
-    
-    
-    
+
+
+
+
     if opts.normclip:
       self._clip_ops = self.clip_ops_graph(self._examples, self._labels, self._neg_idxs)
 
@@ -613,9 +613,9 @@ def split_decider(thresh,mixture_dictionary,session):
     num_mixtures_max = 1
     sigmas = tf.get_variable("sigma")
     word_count = sigmas.shape[0]
-    for word_id in mixture_dictionary: 
+    for word_id in mixture_dictionary:
         mixtures = mixture_dictionary[word_id]
-        for mixture in mixtures: 
+        for mixture in mixtures:
             sigma = tf.nn.embedding_lookup(sigmas,mixture)
             sigma = session.run(sigma)
             sigma_norm = np.linalg.norm(sigma)
@@ -644,9 +644,9 @@ def main(_):
       model = Word2GMtrainer(opts, session,mixture_dictionary,1,0)
     for i in xrange(1,opts.epochs_to_train+1):
       if i % 5 != 0:
-        model.train()  
+        model.train()
       else:
-        #perform check here, re update the dictionary. 
+        #perform check here, re update the dictionary.
         mixture_dictionary,num_mixtures,total_additional = split_decider(5,mixture_dictionary,session)
         model = Word2GMtrainer(opts,sesson,mixture_dictionary,num_mixtures_max,total_additional)
         model.train()
