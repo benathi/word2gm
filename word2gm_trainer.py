@@ -243,15 +243,23 @@ class Word2GMtrainer(object):
     self.build_graph() #
     self.save_vocab()
 
+  def _build_mixture_matrix(self,mixture_dictionary):
+      mixture_matrix = np.zeros([self._options.vocab_size, self.num_mixtures_max])
+      for i in mixture_dictionary:
+          mixture_matrix[i,:] = mixture_dictionary[i]
+      return tf.convert_to_tensor(mixture_matrix, dtype=tf.int32)
 
-  def _embedding_lookup(self,embedding_matrix,ids,tensor_var,embedding_name=""):
+  def _embedding_lookup(self,embedding_matrix,ids,embedding_name=""):
+      elements = []
       for i in range(self._options.batch_size):
           _id = ids[i]
-          if _id in self.mixture_dictionary:
-              if embedding_name:
-                 tensor_var[i,:,:] = tf.nn.embedding_lookup(embedding_matrix, self.mixture_dictionary[_id], name=embedding_name)
-              else:
-                tensor_var[i,:,:] = tf.nn.embedding_lookup(embedding_matrix, self.mixture_dictionary[_id])
+          mixtures = tf.nn.embedding_lookup(self._mixture_matrix,_id)
+          if embedding_name:
+             t = tf.nn.embedding_lookup(embedding_matrix, mixtures, name=embedding_name)
+             elements.append(t)
+          else:
+            elements.append(tf.nn.embedding_lookup(embedding_matrix, mixtures))
+      tensor_var = tf.stack(elements)
       return tensor_var
 
   def optimize(self, loss):
@@ -425,34 +433,22 @@ class Word2GMtrainer(object):
 
     def Lfunc(word_idxs, pos_idxs, neg_idxs):
       with tf.name_scope('LossCal') as scope:
-        mu_embed_tf = tf.get_variable("mu_embed_tf", shape=[self._options.batch_size, self.num_mixtures_max,self._options.emb_dim])
-        mu_embed_pos_tf = tf.get_variable("mu_embed_pos_tf", shape=[self._options.batch_size, self.num_mixtures_max,self._options.emb_dim])
-        mu_embed_neg_tf = tf.get_variable("mu_embed_neg_tf", shape=[self._options.batch_size, self.num_mixtures_max,self._options.emb_dim])
 
-        mu_embed = self._embedding_lookup(mus, word_idxs, mu_embed_tf, "MuWord")
-        mu_embed_pos = self._embedding_lookup(mus_out, pos_idxs, mu_embed_pos_tf, "MuPos")
-        mu_embed_neg = self._embedding_lookup(mus_out, neg_idxs, mu_embed_neg_tf, "MuNeg")
 
-        if spherical:
-            sig_embed_tf = tf.get_variable("sig_embed_tf", shape=[self._options.batch_size, self.num_mixtures_max,1])
-            sig_embed_pos_tf = tf.get_variable("sig_embed_pos_tf", shape=[self._options.batch_size, self.num_mixtures_max,1])
-            sig_embed_neg_tf = tf.get_variable("sig_embed_neg_tf", shape=[self._options.batch_size, self.num_mixtures_max,1])
-        else:
-            sig_embed_tf = tf.get_variable("sig_embed_tf", shape=[self._options.batch_size, self.num_mixtures_max,self._options.emb_dim])
-            sig_embed_pos_tf = tf.get_variable("sig_embed_pos_tf", shape=[self._options.batch_size, self.num_mixtures_max,self._options.emb_dim])
-            sig_embed_neg_tf = tf.get_variable("sig_embed_neg_tf", shape=[self._options.batch_size, self.num_mixtures_max,self._options.emb_dim])
+        mu_embed = self._embedding_lookup(mus, word_idxs, "MuWord")
+        mu_embed_pos = self._embedding_lookup(mus_out, pos_idxs, "MuPos")
+        mu_embed_neg = self._embedding_lookup(mus_out, neg_idxs, "MuNeg")
 
-        sig_embed= tf.exp(self._embedding_lookup(logsigs, word_idxs,sig_embed_tf), name='SigWord')
-        sig_embed_pos = tf.exp(self._embedding_lookup(logsigs_out, pos_idxs, sig_embed_pos_tf), name='SigPos')
-        sig_embed_neg = tf.exp(self._embedding_lookup(logsigs_out, neg_idxs, sig_embed_neg_tf), name='SigNeg')
 
-        mix_word_tf = tf.get_variable("mix_word_tf", shape=[self._options.batch_size, self.num_mixtures_max])
-        mix_pos_tf = tf.get_variable("mix_pos_tf", shape=[self._options.batch_size, self.num_mixtures_max])
-        mix_neg_tf = tf.get_variable("mix_neg_tf", shape=[self._options.batch_size, self.num_mixtures_max])
 
-        mix_word = tf.nn.softmax(self._embedding_lookup(mixture, word_idxs, mix_word_tf), name='MixWord')
-        mix_pos = tf.nn.softmax(self._embedding_lookup(mixture_out, pos_idxs, mix_pos_tf), name='MixPos')
-        mix_neg = tf.nn.softmax(self._embedding_lookup(mixture_out, neg_idxs, mix_neg_tf), name='MixNeg')
+        sig_embed= tf.exp(self._embedding_lookup(logsigs, word_idxs), name='SigWord')
+        sig_embed_pos = tf.exp(self._embedding_lookup(logsigs_out, pos_idxs), name='SigPos')
+        sig_embed_neg = tf.exp(self._embedding_lookup(logsigs_out, neg_idxs), name='SigNeg')
+
+
+        mix_word = tf.nn.softmax(self._embedding_lookup(mixture, word_idxs), name='MixWord')
+        mix_pos = tf.nn.softmax(self._embedding_lookup(mixture_out, pos_idxs), name='MixPos')
+        mix_neg = tf.nn.softmax(self._embedding_lookup(mixture_out, neg_idxs), name='MixNeg')
 
         epos = log_energy(mu_embed, sig_embed, mix_word, mu_embed_pos, sig_embed_pos, mix_pos)
         eneg = log_energy(mu_embed, sig_embed, mix_word, mu_embed_neg, sig_embed_neg, mix_neg)
@@ -514,6 +510,7 @@ class Word2GMtrainer(object):
         self.mixture_dictionary[i] = [i]
     if temp:
         pickle.dump(self._word2id, open("word2id.pkl", 'wb'))
+    self._mixture_matrix = self._build_mixture_matrix(self.mixture_dictionary)
     loss = self.calculate_loss(examples, labels)
     self._loss = loss
     if opts.normclip:
@@ -659,7 +656,7 @@ def main(_):
     model = Word2GMtrainer(opts, session,mixture_dictionary,1,0)
   for i in xrange(1,opts.epochs_to_train+1):
     print("++++++++++++++++++",i,"++++++++++++++++++++++")
-    if i % 3 != 0:
+    if i % 10 != 0:
      _,mixture_dictionary = model.train()
     else:
          # print("MIXTURE", mixture_dictionary)
