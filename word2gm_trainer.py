@@ -615,9 +615,9 @@ def split_decider(thresh,mixture_dictionary,session):
     print("start 2")
     for word_id in mixture_dictionary:
         mixtures = mixture_dictionary[word_id]
-        tmp = mixtures
+        tmp = mixtures[:]
         for mixture in mixtures:
-            sigma = sigmas[(mixture-1),:]
+            sigma = sigmas[mixture,:]
             sigma_norm = np.linalg.norm(sigma)
             if sigma_norm> thresh:
                 print(sigma_norm)
@@ -656,11 +656,11 @@ def main(_):
     model = Word2GMtrainer(opts, session,mixture_dictionary,1,0)
   for i in xrange(1,opts.epochs_to_train+1):
     print("++++++++++++++++++",i,"++++++++++++++++++++++")
-    if i % 2 != 0:
+    if i % 1 != 0:
      _,mixture_dictionary = model.train()
     else:
          print("start")
-         num_mixtures_max,total_additional = split_decider(5,mixture_dictionary,session)
+         num_mixtures_max,total_additional = split_decider(2.76,mixture_dictionary,session)
          print("end")
          tf.reset_default_graph()
          session = tf.Session()
