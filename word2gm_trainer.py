@@ -620,7 +620,6 @@ def split_decider(thresh,mixture_dictionary,session):
             sigma = sigmas[mixture,:]
             sigma_norm = np.linalg.norm(sigma)
             if sigma_norm> thresh:
-                print(sigma_norm)
                 tmp.append(word_count)
                 word_count+=1
                 total_additional+=1
@@ -631,7 +630,7 @@ def split_decider(thresh,mixture_dictionary,session):
     for word_id in mixture_dictionary:
         mixtures = mixture_dictionary[word_id]
         if len(mixtures)<num_mixtures_max:
-            additional_num = num_mixtures_max - mixtues
+            additional_num = num_mixtures_max - len(mixtures)
             additional_choices = np.random.choice(len(mixtures), additional_num)
             for choice in additional_choices:
                 mixtures.append(mixtures[choice])
