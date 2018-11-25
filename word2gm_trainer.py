@@ -213,7 +213,7 @@ class Options(object):
 
 class Word2GMtrainer(object):
 
-  def __init__(self, options, session, mixture_dictionary,num_mixtures_max,total_additional):
+  def __init__(self, options, session, mixture_dictionary,num_mixtures_max):
     self._options = options
     # Ben A: print important opts
     opts = options
@@ -237,7 +237,6 @@ class Word2GMtrainer(object):
     self._session = session
     self._word2id = {}
     self._id2word = []
-    self.total_additional_mixtures = total_additional
     self.num_mixtures_max = num_mixtures_max
     self.mixture_dictionary = mixture_dictionary
     self.build_graph() #
@@ -333,7 +332,7 @@ class Word2GMtrainer(object):
 
     # the model parameters
     mu_scale = opts.mu_scale*math.sqrt(3.0/(1.0*embedding_size))
-    total_size = vocabulary_size + self.total_additional_mixtures
+    total_size = vocabulary_size *self.num_mixtures_max + 1
     mus = tf.get_variable('mu', initializer=tf.random_uniform([total_size, embedding_size], -mu_scale, mu_scale))
     if opts.wout:
       mus_out = tf.get_variable('mu_out', initializer=tf.random_uniform([total_size, embedding_size], -mu_scale, mu_scale))
@@ -606,7 +605,7 @@ def _start_shell(local_ns=None):
   IPython.start_ipython(argv=[], user_ns=user_ns)
 
 def split_decider(thresh,mixture_dictionary,session):
-    total_additional = 0
+    total_words = 0
     num_mixtures_max = 1
     with tf.variable_scope('', reuse=tf.AUTO_REUSE):
         sigmas = session.run(tf.get_variable("sigma"))
@@ -622,7 +621,6 @@ def split_decider(thresh,mixture_dictionary,session):
             if sigma_norm> thresh:
                 tmp.append(word_count)
                 word_count+=1
-                total_additional+=1
                 if len(tmp)>num_mixtures_max:
                     num_mixtures_max= len(tmp)
         mixture_dictionary[word_id] = tmp
@@ -636,7 +634,7 @@ def split_decider(thresh,mixture_dictionary,session):
                 mixtures.append(mixtures[choice])
             mixture_dictionary[word_id] = mixtures
     print("end 3")
-    return num_mixtures_max, total_additional
+    return num_mixtures_max
 
 def main(_):
   mixture_dictionary = {}
@@ -652,18 +650,18 @@ def main(_):
   print('Saving results to {}'.format(opts.save_path))
   with tf.device("/cpu:0"):
     session = tf.Session()
-    model = Word2GMtrainer(opts, session,mixture_dictionary,1,0)
+    model = Word2GMtrainer(opts, session,mixture_dictionary,1)
   for i in xrange(1,opts.epochs_to_train+1):
     print("++++++++++++++++++",i,"++++++++++++++++++++++")
     if i % 1 != 0:
      _,mixture_dictionary = model.train()
     else:
          print("start")
-         num_mixtures_max,total_additional = split_decider(2.76,mixture_dictionary,session)
+         num_mixtures_max = split_decider(2.76,mixture_dictionary,session)
          print("end")
          tf.reset_default_graph()
          session = tf.Session()
-         model = Word2GMtrainer(opts,session,mixture_dictionary,num_mixtures_max,total_additional)
+         model = Word2GMtrainer(opts,session,mixture_dictionary,num_mixtures_max)
          _,mixture_dictionary = model.train()
         # Perform a final save.
 
