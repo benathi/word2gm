@@ -112,6 +112,10 @@ flags.DEFINE_string("rep", "gm", 'The type of representation. Either gm or vec')
 
 flags.DEFINE_integer("fixvar", 0, "whether to fix the variance or not")
 
+flags.DEFINE_float("thresh", 2.9, "The threshold for norm of covariance to split a distribution")
+
+flags.DEFINE_int("iterations", 3, "The number of epochs before checkign to split")
+
 FLAGS = flags.FLAGS
 
 
@@ -210,6 +214,9 @@ class Options(object):
     self.rep = FLAGS.rep
 
     self.fixvar = FLAGS.fixvar
+
+    self.thresh = FLAGS.thresh
+    self.iterations =  FLAGS.iterations
 
 class Word2GMtrainer(object):
 
@@ -609,9 +616,7 @@ def split_decider(thresh,mixture_dictionary,session):
     num_mixtures_max = 1
     with tf.variable_scope('', reuse=tf.AUTO_REUSE):
         sigmas = session.run(tf.get_variable("sigma"))
-    print(sigmas.shape)
     word_count = sigmas.shape[0]
-    print("start 2")
     for word_id in mixture_dictionary:
         mixtures = mixture_dictionary[word_id]
         tmp = mixtures[:]
@@ -624,7 +629,6 @@ def split_decider(thresh,mixture_dictionary,session):
                 if len(tmp)>num_mixtures_max:
                     num_mixtures_max= len(tmp)
         mixture_dictionary[word_id] = tmp
-    print("end 2")
     for word_id in mixture_dictionary:
         mixtures = mixture_dictionary[word_id]
         if len(mixtures)<num_mixtures_max:
@@ -633,7 +637,6 @@ def split_decider(thresh,mixture_dictionary,session):
             for choice in additional_choices:
                 mixtures.append(mixtures[choice])
             mixture_dictionary[word_id] = mixtures
-    print("end 3")
     return num_mixtures_max
 
 def main(_):
@@ -652,13 +655,10 @@ def main(_):
     session = tf.Session()
     model = Word2GMtrainer(opts, session,mixture_dictionary,1)
   for i in xrange(1,opts.epochs_to_train+1):
-    print("++++++++++++++++++",i,"++++++++++++++++++++++")
-    if i % 1 != 0:
+    if i % opts.iterations != 0:
      _,mixture_dictionary = model.train()
     else:
-         print("start")
-         num_mixtures_max = split_decider(2.76,mixture_dictionary,session)
-         print("end")
+         num_mixtures_max = split_decider(opts.thresh,mixture_dictionary,session)
          tf.reset_default_graph()
          session = tf.Session()
          model = Word2GMtrainer(opts,session,mixture_dictionary,num_mixtures_max)
