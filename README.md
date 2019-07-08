@@ -80,7 +80,7 @@ The Tensorboard embeddings visualization tools (please use Firefox or Chrome) al
 
 
 ## Trained Model
-We provide a trained model for K=2 [here](http://35.161.153.223:6004/w2gm-k2-d50.tar.gz). To analyze the model, see **Analyze Model.ipynb**. The code expects the model to be extracted to directory **modelfiles/w2gm-k2-d50/**.
+We provide a trained model for K=2 [here](s3://bens-embeddings/embeddings_project/word2gm_d50/w2gm-k2-d50.tar.gz). To analyze the model, see **Analyze Model.ipynb**. The code expects the model to be extracted to directory **modelfiles/w2gm-k2-d50/**.
 
 
 ## Training Options
