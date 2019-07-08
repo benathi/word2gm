@@ -79,9 +79,6 @@ Then, navigate the browser to (http://localhost/6006) (or a url of the appropria
 The Tensorboard embeddings visualization tools (please use Firefox or Chrome) allow for nearest neighbors query, in addition to PCA and t-sne visualization. We use the following notation: *x:i* refers to the *i*th mixture component of word 'x'. For instance, querying for 'bank:0' yields 'river:1', 'confluence:0', 'waterway:1' as the nearest neighbors, which means that this component of 'bank' corresponds to river bank. On the other hand, querying for 'bank:1' gives the nearest neighbors 'banking:1', 'banker:0', 'ATM:0', which indicates that this component of 'bank' corresponds to financial bank.
 
 
-We provide visualization (compatible with Chrome and Firefox) for our models trained on *ukWaC+WaCkypedia* for [K=1](http://35.161.153.223:6001), [K=2](http://35.161.153.223:6002), and [K=3](http://35.161.153.223:6003).
-
-
 ## Trained Model
 We provide a trained model for K=2 [here](http://35.161.153.223:6004/w2gm-k2-d50.tar.gz). To analyze the model, see **Analyze Model.ipynb**. The code expects the model to be extracted to directory **modelfiles/w2gm-k2-d50/**.
 
